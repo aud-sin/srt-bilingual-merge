@@ -1005,8 +1005,15 @@ function syncSources(){
 function focusRow(i,where='cn',caret='end',center=false){
   const el=rowEl(i);if(!el)return;const ta=el.querySelector('.'+where);
   ta.focus({preventScroll:true});const p=caret==='end'?ta.value.length:caret;try{ta.setSelectionRange(p,p);}catch(e){}
-  el.scrollIntoView({block:center?'center':'nearest'});setCurrent(i);
+  scrollRowInto(el,center);setCurrent(i);
 }
+// 只滚动字幕列表（scrollIntoView 会连带把整个页面顶上去，工具栏就被推出窗口）
+function scrollRowInto(el,center){const pr=rowsPane.getBoundingClientRect(),r=el.getBoundingClientRect();
+  if(center)rowsPane.scrollTop+=r.top-pr.top-(pr.height-r.height)/2;
+  else if(r.top<pr.top)rowsPane.scrollTop+=r.top-pr.top;
+  else if(r.bottom>pr.bottom)rowsPane.scrollTop+=Math.min(r.bottom-pr.bottom,r.top-pr.top);}
+// 保险：页面整体被推动时立即复位
+window.addEventListener('scroll',()=>{if(window.scrollX||window.scrollY)window.scrollTo(0,0);});
 function rowIndexOf(node){const r=node&&node.closest&&node.closest('.row');return r?+r.dataset.i:-1;}
 function nearestRow(t){let best=-1,bd=Infinity;S.rows.forEach((r,i)=>{const d=t<r.s?r.s-t:(t>r.e?t-r.e:0);if(d<bd){bd=d;best=i;}});return best;}
 
@@ -1580,7 +1587,7 @@ function hlAll(){
 let hlT=null;const hlSoon=()=>{clearTimeout(hlT);hlT=setTimeout(hlAll,120);};
 function hlJump(m){
   const old=HL.cur;HL.cur=m;if(old&&old.i!==m.i)hlRow(old.i);
-  const el=rowEl(m.i);if(!el)return;setCurrent(m.i);hlRow(m.i);el.scrollIntoView({block:'center'});
+  const el=rowEl(m.i);if(!el)return;setCurrent(m.i);hlRow(m.i);scrollRowInto(el,true);
 }
 // 找下一处 / 上一处匹配
 function hlStep(list,dir,base){
