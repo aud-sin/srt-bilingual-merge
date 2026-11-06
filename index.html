@@ -1,0 +1,2021 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>双语字幕合并编辑器</title>
+<style>
+:root{
+  --bg:#f4f5f7;--panel:#fff;--line:#e2e5e9;--text:#1c232b;--muted:#6b7480;
+  --accent:#2f6fde;--accent-soft:#e8f0fd;--warn:#e08a00;--warn-soft:#fff4e0;
+  --bad:#d64545;--bad-soft:#fdeaea;--ok:#2e9d5b;--cur:#eef4ff;--solo:#7a4fd0;--tf:#c0306b;--tf-soft:#fde8f0;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:14px/1.5 -apple-system,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 10px;color:var(--text)}
+button:hover{border-color:#b9c0c9}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:#245bc0}
+button:disabled{opacity:.45;cursor:default}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:8px 12px;display:flex;flex-direction:column;gap:6px;flex:none}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.bar .sep{width:1px;height:22px;background:var(--line);margin:0 2px}
+h1{font-size:15px;margin:0 8px 0 0;font-weight:650}
+.file{position:relative;display:inline-flex;align-items:center;gap:6px;border:1px dashed #b9c0c9;border-radius:6px;padding:3px 10px;background:#fafbfc;cursor:pointer;max-width:260px}
+.file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.file .lbl{font-weight:600;white-space:nowrap}
+.file .nm{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file.loaded{border-style:solid;border-color:#9cc3a9;background:#f1faf4}
+.stat{color:var(--muted);font-size:13px}
+.stat b{color:var(--text);font-weight:600}
+.stat .w{color:var(--warn)}
+.offinfo{font-size:13px;color:var(--accent)}
+details.settings{font-size:13px}
+details.settings summary{cursor:pointer;color:var(--muted);user-select:none}
+.setgrid{display:flex;flex-wrap:wrap;gap:6px 22px;padding:8px 0 2px}
+.setgrid label{display:inline-flex;align-items:center;gap:6px}
+.setgrid input[type=text],.setgrid input[type=number]{border:1px solid var(--line);border-radius:5px;padding:2px 6px;font:inherit}
+.setgrid select{font:inherit;border:1px solid var(--line);border-radius:5px;padding:1px 4px}
+.setgroup{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;border-left:3px solid var(--line);padding-left:10px}
+.setgroup .t{font-weight:600;color:var(--text)}
+.cfm{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10;display:flex;align-items:center;justify-content:center}
+.cfm .card{background:#fff;border-radius:10px;max-width:560px;width:92%;padding:18px 22px;font-size:14px;line-height:1.7}
+.cfm .card p{margin:6px 0}
+#restore{display:none;background:var(--warn-soft);border:1px solid #f1d29a;border-radius:6px;padding:6px 10px;font-size:13px}
+main{flex:1;display:flex;min-height:0}
+#rowsPane{flex:1.65;overflow-y:auto;min-width:0;padding:0 0 40vh 0}
+#side{flex:1;display:flex;flex-direction:column;border-left:1px solid var(--line);background:var(--panel);min-width:300px}
+.empty{padding:60px 30px;color:var(--muted);text-align:center;line-height:2}
+.empty b{color:var(--text)}
+/* rows */
+.row{display:grid;grid-template-columns:132px 1fr 1fr;gap:8px;padding:6px 10px 6px 8px;border-bottom:1px solid var(--line);background:var(--panel);border-left:4px solid transparent;align-items:start}
+.row.cur{background:var(--cur);border-left-color:var(--accent)}
+.row.f-split{border-left-color:var(--warn)}
+.row.f-weak,.row.f-near{border-left-color:#c9a227}
+.row.solo{border-left-color:var(--solo)}
+.row.cur.f-split,.row.cur.f-weak,.row.cur.f-near{box-shadow:inset 3px 0 0 var(--accent)}
+.meta{font-size:12px;color:var(--muted);line-height:1.4;padding-top:3px}
+.meta .l1{display:flex;gap:6px;align-items:baseline}
+.meta .no{font-weight:600;color:var(--text);font-size:12px}
+.meta .tc{cursor:pointer;font-variant-numeric:tabular-nums}
+.meta .tc:hover{color:var(--accent);text-decoration:underline}
+.meta .tc2{font-variant-numeric:tabular-nums;opacity:.75}
+.badge{display:inline-block;margin-right:3px;font-size:11px;border-radius:4px;padding:0 5px;margin-top:3px;width:max-content}
+.b-split{background:var(--warn-soft);color:var(--warn)}
+.b-weak,.b-near{background:#fbf3d4;color:#9a7a0c}
+.b-solo{background:#f0e9fb;color:var(--solo)}
+textarea{font:inherit;width:100%;resize:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;background:transparent;color:inherit;min-height:28px;line-height:1.45;overflow:hidden}
+textarea:hover{border-color:var(--line)}
+textarea:focus{outline:none;border-color:var(--accent);background:#fff}
+textarea.en{color:#4a535e;font-size:13px}
+textarea.cn{font-size:15px}
+.fs textarea{field-sizing:content}
+.row.nocn textarea.cn{background:repeating-linear-gradient(135deg,#fafafa,#fafafa 6px,#f2f3f5 6px,#f2f3f5 12px)}
+.row.nocn textarea.cn:focus{background:#fff}
+textarea.cn::placeholder{color:#b7bec7}
+.ops{display:none;gap:3px;margin-top:3px}
+.row.cur .ops{display:flex}
+.row.tf .meta .tc,.row.tf .meta .tc2{color:var(--tf);opacity:1;font-weight:600}
+.b-tr{background:#e3f4f4;color:#127a7a}
+.b-trm{background:#e3f4f4;color:#127a7a;cursor:pointer;box-shadow:inset 0 0 0 1px #8fd0d0}
+.row.trm textarea.cn{background:#f0fafa;box-shadow:inset 0 0 0 1px #9ad6d6}
+.row.trm textarea.cn:focus{background:#fff}
+.b-tf{background:var(--tf-soft);color:var(--tf);cursor:pointer}
+.ops button{font-size:11px;padding:0 4px;line-height:1.5;white-space:nowrap}
+.row.f-nl{border-left-color:#c9a227}
+.b-nl{background:#fbf3d4;color:#9a7a0c;cursor:pointer}
+.b-dlg{background:#e6e9fb;color:#3346b8;cursor:pointer}
+.b-dlgf{background:var(--bad-soft);color:var(--bad);cursor:pointer}
+.row.dlg textarea.cn{background:#f3f4fe;box-shadow:inset 0 0 0 1px #b9c1f2}
+.row.dlg.dlgf textarea.cn{background:#fff6f6;box-shadow:inset 0 0 0 1px #efb1b1}
+.row.dlg textarea.cn:focus{background:#fff}
+.row.pq textarea.cn{background:#f3f4fe;box-shadow:inset 0 0 0 1px #b9c1f2}
+.row.pq.pqf textarea.cn{background:#fff6f6;box-shadow:inset 0 0 0 1px #efb1b1}
+.row.pq textarea.cn:focus{background:#fff}
+#sFmt{font:inherit;border:1px solid var(--line);border-radius:6px;padding:4px 6px;background:#fff;width:auto}
+/* side */
+#videoBox{display:none;position:relative;background:#000;flex:none}
+#videoBox video{width:100%;max-height:38vh;display:block}
+#ovl{position:absolute;left:0;right:0;bottom:44px;text-align:center;pointer-events:none;padding:0 10px}
+#ovl .o{display:inline-block;background:rgba(0,0,0,.55);color:#fff;border-radius:4px;padding:2px 8px;margin-top:2px;white-space:pre-wrap}
+#ovl .ocn{font-size:17px}#ovl .oen{font-size:13px;color:#ddd}
+.sideHead{padding:8px 10px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;flex:none}
+.sideHead .t{font-weight:600}
+#srcList{flex:1;overflow-y:auto;padding-bottom:40vh}
+.src{display:grid;grid-template-columns:78px 1fr;gap:6px;padding:4px 8px;border-bottom:1px solid #f0f1f3;font-size:13.5px;position:relative}
+.src .tc{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;cursor:pointer;padding-top:2px}
+.src .tc:hover{color:var(--accent);text-decoration:underline}
+.src.used .tx{color:#9aa2ab}
+.src.unused{background:var(--warn-soft)}
+.src.unused .tx{color:#7a4a00;font-weight:500}
+.src.ignored .tx{color:#b0b6bd;text-decoration:line-through}
+.src.hl{box-shadow:inset 3px 0 0 var(--accent)}
+.src.flash{animation:flash 1.2s}
+@keyframes flash{0%{background:#ffe08a}100%{}}
+.sops{grid-column:2;display:none;gap:4px}
+.src:hover .sops{display:flex}
+.sops button{font-size:11.5px;padding:0 6px}
+/* 查找替换 / 词汇库 / 高亮 */
+#frBar input[type=text]{border:1px solid var(--line);border-radius:5px;padding:3px 6px;font:inherit;width:150px}
+#frBar input[type=text]:focus{outline:none;border-color:var(--accent)}
+#frBar select{font:inherit;border:1px solid var(--line);border-radius:5px;padding:2px 4px}
+#frBar label{display:inline-flex;align-items:center;gap:3px}
+#frInfo.bad{color:var(--bad)}
+body:not(.g-on) .gOnly{display:none!important}
+.tw{position:relative;min-width:0}
+.hlm{position:absolute;inset:0;pointer-events:none;border:1px solid transparent;padding:3px 6px;white-space:pre-wrap;overflow-wrap:break-word;font:inherit;line-height:1.45;color:transparent;overflow:hidden}
+.hle{font-size:13px}.hlc{font-size:15px}
+.hlm mark{color:transparent;background:transparent;border-radius:2px;padding:0;margin:0}
+.hlm .m1{box-shadow:inset 0 -2px 0 rgba(47,111,222,.55)}
+.hlm .m2{background:rgba(46,157,91,.20)}
+.hlm .m3{background:rgba(122,79,208,.24);box-shadow:inset 0 -2px 0 rgba(122,79,208,.7)}
+.hlm .m4{background:rgba(255,193,7,.45)}
+.hlm .m5{background:rgba(255,110,0,.55);box-shadow:0 0 0 1px rgba(255,110,0,.9)}
+/* 待配对英文 / 导入名单 */
+#gCand{border-bottom:1px solid var(--line);font-size:13px}
+#gCand .ch{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#f5f8ff;flex-wrap:wrap}
+#gCand .ch .t{font-weight:600;color:var(--accent)}
+#gCand .cl{display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px;max-height:150px;overflow-y:auto}
+.gcd{display:inline-flex;align-items:center;border:1px solid #c9d8f5;border-radius:12px;background:#fff;padding:0 2px 0 8px;line-height:22px;white-space:nowrap}
+.gcd .n{cursor:pointer;color:var(--accent);font-weight:600}
+.gcd .n:hover{text-decoration:underline}
+.gcd i{font-style:normal;font-size:11px;color:var(--muted);margin-left:4px}
+.gcd .x{cursor:pointer;color:#aab;font-size:11px;padding:0 5px}
+.gcd .x:hover{color:var(--bad)}
+.gcd.zero{border-color:#e4e6ea;background:#fafbfc}.gcd.zero .n{color:#9aa2ab;font-weight:400}
+.gcd.sel{border-color:var(--accent);background:var(--accent-soft)}
+.cfm .card.wide{max-width:780px;max-height:88vh;overflow:auto}
+#ilText{field-sizing:fixed;height:140px;background:#fff;width:100%;font:13px/1.4 ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:6px;padding:6px 8px;resize:vertical;overflow:auto;min-height:110px}
+#ilList{margin-top:8px;max-height:38vh;overflow-y:auto;border:1px solid var(--line);border-radius:6px}
+#ilList .r{display:grid;grid-template-columns:22px 130px 90px 1fr;gap:6px;align-items:center;padding:2px 8px;border-bottom:1px solid #f0f1f3;font-size:13px}
+#ilList .r.dis{color:#9aa2ab}
+#ilList .r .c{color:var(--muted);font-size:12px}
+#ilList .r .src{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ilBar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:13px}
+#atHead{field-sizing:fixed;height:300px;width:100%;font:12.5px/1.45 ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:6px;padding:6px 8px;resize:vertical;overflow:auto;background:#fff;white-space:pre;overflow-wrap:normal}
+#atTag{font:13px ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:6px;padding:3px 6px;width:260px}
+#atPrev{font:12px/1.5 ui-monospace,Consolas,monospace;background:#f6f7f9;border-radius:6px;padding:6px 8px;white-space:pre-wrap;word-break:break-all;margin-top:6px}
+#spBar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:13px}
+#spList{margin-top:8px;max-height:52vh;overflow-y:auto;border:1px solid var(--line);border-radius:6px}
+#spList .r{display:grid;grid-template-columns:22px 52px 1fr;gap:2px 6px;align-items:start;padding:5px 8px;border-bottom:1px solid #f0f1f3;font-size:13.5px}
+#spList .r.off{opacity:.55}
+#spList .r .no{color:var(--muted);font-size:12px;padding-top:2px}
+#spList .r .cnp{white-space:pre-wrap;line-height:1.6}
+#spList .r .enp{grid-column:3;color:var(--muted);font-size:12px;white-space:pre-wrap;line-height:1.45}
+#spList .nm{border-bottom:1px dotted #9aa2ab}
+#spList .sp{display:inline-block;min-width:1em;text-align:center;cursor:pointer;border-radius:3px;font-weight:700;padding:0 1px}
+#spList .sp.on{background:#d8f3dc;color:#14692b}
+#spList .sp.off{color:#c3c8cf;text-decoration:line-through;font-weight:400}
+#spList .sp.weak.on{background:#fff1c2;color:#8a5a00}
+#spList .tag{font-size:11px;color:#8a5a00;background:#fff6d8;border-radius:3px;padding:0 4px;margin-left:6px;white-space:nowrap}
+#sideTabs{display:flex;gap:2px;padding:6px 8px 0;border-bottom:1px solid var(--line);flex:none}
+.stab{padding:4px 12px;border:1px solid var(--line);border-bottom:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;color:var(--muted);background:#fafbfc;margin-bottom:-1px}
+.stab.on{background:#fff;color:var(--text);font-weight:600}
+.stab b{color:var(--solo);font-weight:600}
+#glossPane{display:none;flex:1;flex-direction:column;min-height:0}
+#side.tab-gloss .sideHead,#side.tab-gloss #srcList{display:none}
+#side.tab-gloss #glossPane{display:flex}
+.gHead{padding:8px 10px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.gHead input[type=text]{border:1px solid var(--line);border-radius:5px;padding:2px 6px;font:inherit;width:110px}
+.gHead label{display:inline-flex;align-items:center;gap:3px}
+#gList{flex:1;overflow-y:auto;padding-bottom:30vh}
+.gAddBox input[type=text]{width:120px}
+.gAddBox input.filled{border-color:#9cc3a9;background:#f1faf4}
+.gHint{flex-basis:100%;font-size:12px}
+.gi{display:grid;grid-template-columns:minmax(70px,1fr) 96px 12px minmax(80px,1fr) 168px;gap:6px;align-items:center;padding:4px 10px;border-bottom:1px solid #f0f1f3;font-size:14px}
+.gi .ge{border:1px solid transparent;border-radius:5px;padding:2px 6px;font:inherit;font-size:13px;color:#4a535e;width:100%;min-width:0;background:transparent}
+.gi .ge:hover{border-color:var(--line)}
+.gi .ge:focus{outline:none;border-color:var(--accent);background:#fff}
+.gi.noen .ge{border-color:#efb1b1;background:#fff6f6}
+.gi .gf{cursor:pointer;color:var(--solo);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gi .gf:hover{text-decoration:underline}
+.gi .ga{color:var(--muted)}
+.gi .gt{border:1px solid var(--line);border-radius:5px;padding:2px 6px;font:inherit;width:100%;min-width:0}
+.gi .gt:focus{outline:none;border-color:var(--accent)}
+.gi .gr{display:flex;gap:3px;align-items:center;white-space:nowrap}
+.gi .gc{font-size:12px;color:var(--muted);min-width:70px;text-align:right}
+.gi.pend .gt{border-color:#d9c6f5;background:#faf7ff}
+.gi.pend .gc b{color:var(--solo)}
+.gi.done .gf{color:var(--muted);font-weight:400}
+.gi button{font-size:11.5px;padding:0 6px}
+.gListHead{display:grid;grid-template-columns:minmax(70px,1fr) 96px 12px minmax(80px,1fr) 168px;gap:6px;padding:4px 10px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);background:#fafbfc}
+.gi.flash{animation:flash 1.2s}
+.gEmpty{padding:24px 16px;color:var(--muted);font-size:13px;line-height:1.9}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#222;color:#fff;padding:6px 14px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+#toast.show{opacity:.92}
+#help{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:8;align-items:center;justify-content:center}
+#help .card{background:#fff;border-radius:10px;max-width:720px;width:92%;max-height:86vh;overflow:auto;padding:18px 22px;font-size:14px}
+#help h2{margin:0 0 8px;font-size:17px}
+#help h3{margin:14px 0 4px;font-size:14px}
+#help table{border-collapse:collapse;width:100%}
+#help td{padding:3px 8px;border-bottom:1px solid #eee;vertical-align:top}
+#help td:first-child{white-space:nowrap;font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--accent)}
+kbd{font-family:ui-monospace,Consolas,monospace;font-size:12px;border:1px solid #ccd;border-bottom-width:2px;border-radius:4px;padding:0 4px;background:#fafafa}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>双语字幕合并编辑器</h1>
+    <label class="file" id="fileEn"><span class="lbl">① 英文 SRT</span><span class="nm">（时间轴以它为准）</span><input type="file" accept=".srt,.txt" id="inEn"></label>
+    <label class="file" id="fileCn"><span class="lbl">② 中文 SRT</span><span class="nm">（支持 UTF-8 / GBK）</span><input type="file" accept=".srt,.txt" id="inCn"></label>
+    <label class="file" id="fileVid"><span class="lbl">视频（可选）</span><span class="nm">用于试看</span><input type="file" accept="video/*,.mkv,.mp4,.webm" id="inVid"></label>
+    <span class="sep"></span>
+    <button id="btnAlign" class="primary" disabled>自动对齐</button>
+    <button id="btnTidy" disabled title="按“设置 → 中文整理”处理全部中文：标点改半角、按英文补 ... ! ? 和引号、检查双人对白的“-”（可撤销）">整理中文</button>
+    <select id="sFmt" title="导出格式"><option value="ass">ASS（推荐，给 Aegisub）</option><option value="srt">SRT</option></select>
+    <button id="btnExport" disabled title="Ctrl+S">导出</button>
+    <button id="btnCopy" disabled title="复制导出内容到剪贴板">复制结果</button>
+    <button id="btnTrOut" disabled title="把待翻译的句子（连同上下文）导出成一段可直接发给 AI 的文本">导出待翻译…</button>
+    <span class="sep"></span>
+    <button id="btnUndo" title="Ctrl+Z">撤销</button>
+    <button id="btnRedo" title="Ctrl+Shift+Z / Ctrl+Y">重做</button>
+    <span class="sep"></span>
+    <button id="btnSaveProj" disabled>保存项目</button>
+    <label class="file" style="border-style:solid;padding:3px 10px;background:#fff"><span class="lbl" style="font-weight:400">打开项目</span><input type="file" accept=".json" id="inProj"></label>
+    <button id="btnCache" title="浏览器里自动缓存的所有项目（每集一个），可切换 / 删除">缓存项目…</button>
+    <button id="btnHelp">快捷键 / 说明</button>
+  </div>
+  <div id="restore"></div>
+  <div class="bar" id="frBar">
+    <input type="text" id="frFind" placeholder="查找（Ctrl+F）" spellcheck="false">
+    <input type="text" id="frRep" placeholder="替换为（Ctrl+H）" spellcheck="false">
+    <select id="frScope" title="在哪一栏里查找替换"><option value="cn">中文</option><option value="en">英文</option><option value="both">中英</option></select>
+    <label class="stat"><input type="checkbox" id="frCase">区分大小写</label>
+    <label class="stat"><input type="checkbox" id="frWord">全词</label>
+    <label class="stat"><input type="checkbox" id="frRe">正则</label>
+    <button id="frPrev" title="上一处（Shift+Enter / Shift+F3）">◂</button><button id="frNext" title="下一处（查找框里按 Enter / F3）">▸</button>
+    <button id="frOne" title="替换当前这一处，并跳到下一处（替换框里按 Enter）">替换</button><button id="frAll" title="全部替换（可撤销）">全部替换</button>
+    <span class="stat" id="frInfo"></span>
+    <span class="sep gOnly"></span><button class="gOnly" id="gAddTop" title="把选中的中文（字幕框或右侧原字幕里选中的文字）加入专有词汇库（Alt+G）">＋加入词库</button>
+  </div>
+  <div class="bar">
+    <span class="stat" id="stat">先载入英文和中文字幕。</span>
+    <span class="offinfo" id="offinfo"></span>
+    <span class="sep"></span>
+    <button id="btnNextFlag" title="Alt+N">下一个待检查 ▸</button>
+    <button id="btnNextUnused" title="Alt+U">下一条未用中文 ▸</button>
+    <button id="btnNextTf" title="Alt+J">下一个需校时 ▸</button>
+    <button id="btnNextTr" title="Alt+L">下一条待翻译 ▸</button>
+    <button id="btnNextDlg" title="Alt+K">下一个对白/标点待审 ▸</button>
+    <span class="stat" id="saved"></span>
+  </div>
+  <details class="settings">
+    <summary>设置（对齐 / 导出格式）</summary>
+    <div class="setgrid">
+      <div class="setgroup"><span class="t">对齐</span>
+        <label>偏移检测
+          <select id="sOffMode"><option value="auto">自动·分段自适应</option><option value="global">自动·全片单一偏移</option><option value="manual">手动</option></select></label>
+        <label>手动偏移（秒，中文时间 + 该值）<input type="number" step="0.05" id="sManualOff" style="width:80px" value="0"></label>
+        <label><input type="checkbox" id="sSolo" checked>括号里的中文注释（如“（东罗斯威尔，1984年）”）单独成条</label>
+        <label>中文原有换行
+          <select id="sCnNL"><option value="smart">智能判断（分句处加空格、句中折行直接连上，拿不准的标出来）</option><option value="space">换成空格</option><option value="keep">保留换行</option></select></label>
+        <span class="stat">（对齐设置在点“自动对齐”时生效）</span>
+      </div>
+      <div class="setgroup"><span class="t">中文整理</span>
+        <label><input type="checkbox" id="sCnPunct" checked>标点改半角（“，”“。”“、”→ 半角空格，其它 → 对应英文半角标点）</label>
+        <label>“…”省略号
+          <select id="sEll"><option value="follow">跟随英文（英文本行有 ... 才改成 ...，否则当句号 → 空格）</option><option value="dots">一律改成 ...</option><option value="space">一律当句号 → 空格</option></select></label>
+        <label><input type="checkbox" id="sPq" checked>英文有 ... ! ? 或 "引号" 而中文没有时自动补上（补在句子中间的标“标点待审”，放不准的标红待手动补）</label>
+        <label><input type="checkbox" id="sDlg" checked>英文是“- A - B”双人对白、中文却没有“-”时，自动补上并标“对白待审”</label>
+        <span class="stat">（对齐时自动执行；对已有进度可点顶部“整理中文”）</span>
+      </div>
+      <div class="setgroup"><span class="t">专有词汇库</span>
+        <label><input type="checkbox" id="gOn">启用（把繁中译名收集起来，填好简体译名后一键替换；词库跨项目保存在本浏览器里）</label>
+      </div>
+      <div class="setgroup"><span class="t">导出</span>
+        <label>顺序 <select id="sOrder"><option value="cn">中文在上，英文在下</option><option value="en">英文在上，中文在下</option></select></label>
+        <label title="勾选：导出时中文、英文各自合并为一行，每条只在中英之间换一次行。&#10;取消：保留中英文各自原有的换行。&#10;（中英文对白“-”后空一格，两种情况都会处理）"><input type="checkbox" id="sEnOne" checked>导出时中英文各自合并成一行</label>
+        <label>中文模板 <input type="text" id="sCnTpl" value="{text}" style="width:150px"></label>
+        <label>英文模板 <input type="text" id="sEnTpl" value="{text}" style="width:230px" placeholder='如 <font size="14">{text}</font>'></label>
+        <label><input type="checkbox" id="sBom" checked>UTF-8 带 BOM</label>
+        <label><input type="checkbox" id="sTrMusic" checked>♪ 歌词行没中文时也标“待翻译”</label>
+      </div>
+      <div class="setgroup"><span class="t">ASS</span>
+        <button id="aEdit" title="编辑 ASS 文件头（样式）和英文格式；可套用预设，或读取一个现成的 .ass 文件">编辑模板…</button>
+        <span class="stat" id="aSum"></span>
+        <span class="stat">（模板存在本浏览器里，所有项目通用；需校时 / 待翻译会写在“说话人”栏）</span>
+      </div>
+      <div class="setgroup"><span class="t">SRT</span>
+        <label>换行方式 <select id="sSrtNL"><option value="nl">标准换行</option><option value="N">\N（ASS 式强制换行）</option></select></label>
+        <label><input type="checkbox" id="sSrtMark" checked>需校时 / 待翻译的条目在文字前加 <code>{需校时}</code> <code>{待翻译}</code> 标记（导入 Aegisub 后不显示，可搜索）</label>
+      </div>
+    </div>
+  </details>
+</header>
+<main>
+  <div id="rowsPane"><div class="empty">
+    <b>使用流程</b><br>
+    ① 载入英文 SRT（视频内封的那份，最终时间轴以它为准）<br>
+    ② 载入中文 SRT → 自动检测时间偏移，按时间重叠把中文分配到每条英文上<br>
+    ③ 用 <kbd>Alt</kbd>+<kbd>N</kbd> 逐个检查橙色标记（自动拆分过的）条目，用 <kbd>Alt</kbd>+<kbd>↓</kbd>/<kbd>↑</kbd> 把光标后/前的文字推到下一条/上一条<br>
+    ④ 右侧橙色的是还没用上的中文，悬停可“＋行”追加到当前行<br>
+    ⑤ 导出双语 SRT。进度会按项目自动缓存在浏览器里（多集可同时保留，点“缓存项目…”切换），也可以“保存项目”到文件。
+  </div></div>
+  <aside id="side">
+    <div id="videoBox"><video id="video" controls preload="metadata"></video><div id="ovl"></div></div>
+    <div id="sideTabs" class="gOnly"><span class="stab on" data-tab="src">中文原字幕</span><span class="stab" data-tab="gloss">专有词汇库 <b id="gTabCnt"></b></span></div>
+    <div class="sideHead">
+      <span class="t">中文原字幕</span><span class="stat">（时间已按偏移校正）</span>
+      <label class="stat"><input type="checkbox" id="onlyUnused"> 只看未用</label>
+      <label class="stat" id="followWrap" style="display:none"><input type="checkbox" id="followVid" checked> 选中行时视频跳转</label>
+    </div>
+    <div id="srcList"></div>
+    <div id="glossPane">
+      <div class="gHead gAddBox">
+        <input type="text" id="gEn" placeholder="英文原文（必填）" spellcheck="false">
+        <input type="text" id="gFrom" placeholder="繁中译名（必填）" spellcheck="false"> →
+        <input type="text" id="gTo" placeholder="简体译名（可稍后填）" spellcheck="false">
+        <button id="gAdd">添加</button><button id="gAddSel" title="在英文框选中原文按 Alt+G，再在中文框选中译名按 Alt+G（顺序不限），两项齐了自动加入">＋选中文字</button>
+        <span class="stat gHint">在<b>英文框</b>选中原文、<b>中文框</b>选中译名，各按一次 <kbd>Alt</kbd>+<kbd>G</kbd>，两项齐了自动加入</span>
+      </div>
+      <div class="gHead">
+        <button id="gApplyAll" class="primary">全部替换</button>
+        <button id="gSepBtn" title="用词库里的译名，找出中文里连在一起没分开的人名（如“约翰保罗盖蒂”），预览确认后加上分隔号（约翰·保罗·盖蒂）">人名加分隔号</button>
+        <label class="stat" title="以后每次“自动对齐”（比如载入下一集）时，自动把已填好简体译名的词条替换掉"><input type="checkbox" id="gAuto">对齐时自动替换</label>
+        <span style="flex:1"></span>
+        <button id="gExport" title="把整个词库存成一个独立的 .json 文件，可在别的项目 / 别的浏览器 / 别的电脑里导入">导出词库文件</button>
+        <label class="file" style="border-style:solid;padding:2px 8px;background:#fff" title="导入词库文件：与当前词库合并（同一个繁中译名只保留一条，空着的英文 / 简体译名会被补上）"><span class="lbl" style="font-weight:400">导入词库文件</span><input type="file" accept=".json,.txt" id="gImport"></label>
+        <button id="gClear" title="清空当前词库（比如换一部剧之前；建议先导出备份）">清空</button>
+        <button id="gImportList" title="粘贴 IMDb 演员表等英文名单，提取角色名放进“待配对”列表，逐个配上中文译名">导入英文名单（IMDb）</button>
+      </div>
+      <div id="gCand"></div>
+      <div id="gList"></div>
+    </div>
+  </aside>
+</main>
+<div id="toast"></div>
+<div id="help"><div class="card">
+  <h2>快捷键与说明</h2>
+  <h3>中文输入框里</h3>
+  <table>
+    <tr><td>Alt + ↓</td><td>把<b>光标后</b>的文字移到<b>下一条</b>开头（光标在最前 = 整条下移）</td></tr>
+    <tr><td>Alt + ↑</td><td>把<b>光标前</b>的文字移到<b>上一条</b>末尾（光标在最后 = 整条上移）</td></tr>
+    <tr><td>Enter</td><td>确认本条（清除橙色标记）并跳到下一条；需要换行用 Shift+Enter</td></tr>
+    <tr><td>Ctrl + ↓ / ↑</td><td>跳到下一条 / 上一条（不清除标记）</td></tr>
+  </table>
+  <h3>任意位置</h3>
+  <table>
+    <tr><td>Alt + N</td><td>跳到下一个待检查条目（橙色 = 一句中文被自动拆到了多条英文上；黄色 = 匹配把握不大）</td></tr>
+    <tr><td>Alt + U</td><td>跳到下一条还没用上的中文（右侧橙底）</td></tr>
+    <tr><td>Alt + M</td><td>把当前英文条目与下一条<b>合并</b>（时间轴合并，中英文都拼接）</td></tr>
+    <tr><td>Alt + S</td><td>在<b>英文框光标处</b>把当前条目<b>拆分</b>成两条（时间按字数比例分）</td></tr>
+    <tr><td>Alt + P</td><td>在视频里播放当前条目（需先载入视频）</td></tr>
+    <tr><td>Alt + T</td><td>给当前条目加上/取消“⏱需校时”标记（也可点行内的 ⏱ 或标签本身）</td></tr>
+    <tr><td>Alt + J</td><td>跳到下一个需校时的条目</td></tr>
+    <tr><td>Alt + R</td><td>给当前条目加上/取消“✎待翻译”手动标记（也可点行内的 ✎译 或标签本身）</td></tr>
+    <tr><td>Alt + L</td><td>跳到下一条待翻译的条目（英文独有、没有中文的，以及手动标记的）</td></tr>
+    <tr><td>Alt + K</td><td>跳到下一个“对白待审”或“标点待审”条目</td></tr>
+    <tr><td>Ctrl + Z / Ctrl + Shift + Z</td><td>撤销 / 重做（文字编辑以“一次进入输入框”为单位）</td></tr>
+    <tr><td>Ctrl + S</td><td>按所选格式导出（ASS / SRT）</td></tr>
+    <tr><td>重新对齐…</td><td>已有进度时，“自动对齐”按钮会变成“重新对齐…”，点击会先弹窗确认（它会覆盖全部编辑）；对齐后顶部会出现“恢复对齐前的进度”，可以撤回</td></tr>
+    <tr><td>Ctrl + F / Ctrl + H</td><td>跳到查找框 / 替换框（查找框里 Enter = 下一处，Shift+Enter = 上一处；替换框里 Enter = 替换当前这处）</td></tr>
+    <tr><td>F3 / Shift + F3</td><td>下一处 / 上一处匹配</td></tr>
+    <tr><td>Alt + G</td><td>把选中的中文加入专有词汇库（需先在设置里启用）</td></tr>
+  </table>
+  <h3>⏱ 需校时 与 Aegisub</h3>
+  <p>没有音频参考时，有两类条目的时间只是估算：<b>用“拆分英文”切开的两条</b>（按字数比例分时间），以及<b>中文独有的独立条目</b>（中文原时间 + 自动偏移）。它们会一直带着粉色“⏱需校时”标记，按 Enter 确认也不会清除。</p>
+  <p>• <b>ASS 模板</b>：设置 → ASS → “编辑模板…”。导出时文件头（[Script Info]、样式表）原样照搬模板；中文用第一个样式，中英混排的行写成 <code>中文\N{英文标签}英文</code>，只有英文 / 只有中文的行不加标签。默认是双样式（英文标签 <code>{\rEN}</code>，中文 Default + 英文 EN）；想只换英文字体字号，套用“单样式”预设或把标签改成 <code>{\fnArial\fs44}</code> 之类。也可以直接读取一个你常用的 .ass 文件，样式和英文标签都会照它来。模板存在本浏览器里，所有项目通用。</p>
+  <p>• <b>导出 ASS（推荐）</b>：这些行的“说话人(Name)”栏会写上“需校时-拆分 / 需校时-中文独有 / 需校时-手动标记”，字幕正文不受影响。在 Aegisub 里打开后，字幕网格的说话人列一眼可见；也可以用“选择行（Select Lines）”按说话人字段匹配“需校时”一次选中全部。校好后把说话人栏清空即可。中英文用 <code>\N</code> 强制换行，英文另用 EN 样式（字体字号在设置里改）。</p>
+  <p>• <b>导出 SRT</b>：可选用 <code>\N</code> 换行；需校时的条目文字前会加 <code>{需校时-…}</code>，导入 Aegisub 后它被当作注释不显示，用查找（Ctrl+F）搜“需校时”即可定位，校完用替换删掉。</p>
+  <h3>待翻译</h3>
+  <p>• <b>导出待翻译…</b>：把所有待翻译的条目连同前后几条上下文（可调，默认 2 条）整理成一段文本，开头附翻译要求，可复制或下载后直接发给 AI。每行带编辑器里的 #编号，AI 按“#编号 译文”返回，照编号填回即可。上下文可附上已有中文，让 AI 沿用同样的标点和人名译法。</p>
+  <p>有英文、没有中文的条目会自动显示青色“待翻译”标签（填上中文后自动消失；♪ 歌词行是否算在内可在设置里切换）。导出 ASS 时写在说话人栏（与需校时并存时如“需校时-拆分 待翻译”），导出 SRT 时在文字前加 <code>{待翻译}</code>，方便挑出来交给 AI 翻译。</p>
+  <p>• <b>手动标记</b>：有中文但翻译不完整的条目（比如双人对白只翻了一方），按 <kbd>Alt</kbd>+<kbd>R</kbd> 或点行内的“✎译”按钮标成“✎待翻译·手动”。它和自动的待翻译一样计入统计、能用 <kbd>Alt</kbd>+<kbd>L</kbd> 跳转、导出时带“待翻译”标记；但编辑中文、按 Enter 都<b>不会</b>清除它，翻好后再按一次 <kbd>Alt</kbd>+<kbd>R</kbd> 或点标签取消。</p>
+  <h3>中文整理（标点 / 对白破折号）</h3>
+  <p>• <b>标点</b>：“，”“。”“、”换成一个半角空格；“！？；：”“‘’”「」（）【】～ 等换成对应的英文半角标点；全角字母数字改半角；“——”改成 <code>--</code>；《》没有半角对应，保留。句末多余空格会去掉，“! ? ; :”后面紧跟中文时自动补一个空格。</p>
+  <p>• <b>省略号“…”</b>：默认<b>跟随英文</b>——只有这一行英文里也用了 <code>...</code> 时才改成 <code>...</code>，否则视同句号换成空格（句末则直接去掉）。也可以在设置里改成“一律 ...”或“一律空格”。</p>
+  <p>• <b>双人对白</b>：英文是 <code>- A - B</code>（同一行或分两行）而中文没有对应的“-”时，会按两句的长度比例在空格/句号/问号等处把中文切开，自动补上“-”（格式跟随英文：同行就同行、分行就分行），并标蓝色“对白·已补-”。实在切不开的标红色“对白·缺-”，需手动补。两种都要人工看一眼：按 <kbd>Alt</kbd>+<kbd>K</kbd> 逐个跳转，确认无误后按 Enter 或点标签清除。导出时也会写进说话人栏 / <code>{…}</code> 标记（“对白待审”）。</p>
+  <p>• <b>补 ... ! ? 和引号</b>：英文有 <code>...</code>、<code>!</code>、<code>?</code> 或双引号而中文没有时，把中英文都按断句（标点、对白“-”、中文字间的空格）切成小段，英文的 <code>...</code> / 引号落在第几个断句处，就补到中文对应的断句处。例：<code>What? "Nice to meet you, I'm married"?</code> 切成 3 段，中文 <code>怎么? 很高兴认识你 我已婚?</code> 也是 3 段，补成 <code>怎么? "很高兴认识你 我已婚"?</code>。</p>
+  <p>&nbsp;&nbsp;– 句首 / 句尾的 <code>...</code>、句尾的 <code>!</code> <code>?</code>（如 <code>…moral code, Phil!</code> → “…道德准则无关!”）、整句被引号包住（或跨条引号的开头 / 结尾）直接补，不打标记。<br>&nbsp;&nbsp;– 补在句子中间的标蓝色“标点·已补”，因为中文语序可能和英文不同（如 <code>"Hello," he said</code> ↔ “他说 你好”），请过目。<br>&nbsp;&nbsp;– 英文引号不在断句处（如 <code>I watched "Titanic" yesterday</code>）或中文找不到对应位置的，不补，标红色“标点·缺”，手动补上后自动消失。<br>&nbsp;&nbsp;– 中文里已有任何引号或书名号《》时不动引号；单引号（容易和 I'm 之类的撇号混淆）不处理；省略号设为“一律当句号 → 空格”时不补 <code>...</code>。悬停标签可看具体原因，<kbd>Alt</kbd>+<kbd>K</kbd> 逐个跳转。</p>
+  <p>• <b>中文原有换行</b>：一条中文字幕内部的两行合并成一行时，换行处可能是分句（要空格，如“我不知道你想吃什么⏎所以我就买了几个”），也可能是一句话中间折行（不要空格，如“所以你在1986年买下⏎采石场附近那栋房子”）。“智能判断”会综合这些线索打分：下一行是否以“所以/但是/因为/我/你…”开头、上一行是否以“吗/呢/吧…”结尾（→ 空格），上一行是否以“在/把/被/和/给/的…”结尾、下一行是否以“的/了/着/们…”开头（→ 连上），以及英文在对应位置有没有逗号/句号等断句（有 → 空格，整句没断 → 连上）。上一行末尾已有“，”“。”等标点时直接连上（标点会再换成空格）。</p>
+  <p>• 线索不够明确的换行处会标黄色 <code>⏎买下|采石 连上</code> 标签，计入“待检查”（<kbd>Alt</kbd>+<kbd>N</kbd> 逐个跳转）。<b>点标签即可在“连上 / 空格”间切换</b>，确认后按 Enter 清除。设置里也可以改成“一律换成空格”或“保留换行”。</p>
+  <p>• 这些在“自动对齐”时按设置自动执行；对已有进度，点顶部“整理中文”即可（可撤销）。右侧中文原字幕保持原样，不受影响。</p>
+  <h3>查找替换</h3>
+  <p>顶部常驻查找栏。范围可选中文 / 英文 / 中英；“全词”适合英文单词（如只换 <code>cab</code> 不碰 <code>cabin</code>）；“正则”可用 <code>$1</code> 引用分组。所有匹配会在字幕框里用黄色高亮，当前这处是橙色；跳转时光标留在查找框，可以连续按 Enter。“替换”只换当前这一处，“全部替换”一次换完，都可以 Ctrl+Z 撤销。</p>
+  <h3>专有词汇库（可选，设置里启用）</h3>
+  <p>适合繁中译文转简体后残留的港台译名（如 Steve：“史提夫”→“史蒂夫”）。每个词条记三项：<b>英文原文</b>、<b>繁中译名</b>、<b>简体译名</b>，前两项必填。</p>
+  <p>• <b>加入</b>：在英文框里选中原文按 <kbd>Alt</kbd>+<kbd>G</kbd>，再在中文框（或右侧原字幕）里选中对应译名按 <kbd>Alt</kbd>+<kbd>G</kbd>，两项齐了自动加入（顺序不限）；也可以在页签上方三个框里手动输入后点“添加”。</p>
+  <p>• <b>替换</b>：查到简体译名后填进去，单条“替换”（或在译名框里按 Enter），或“全部替换”所有已填好的。替换只作用于中文；英文原文用来标明是谁 / 哪里，并显示英文、中文各出现几次（英文明显比中文多时，说明可能还有别的译法，可以用顶部查找核对）。点繁中译名可逐个跳到文中。</p>
+  <p>• <b>高亮</b>：文中的词条（英文原文和繁中译名）会高亮：<b style="color:var(--solo)">紫色</b> = 还没填简体译名，<b style="color:var(--ok)">绿色</b> = 已填好、等着替换。</p>
+  <p>• <b>导入英文名单（IMDb）</b>：在页签里点“导入英文名单”，把 IMDb 演员表粘贴进去，会提取角色名（去掉演员名、集数、DS / DI 等头衔和泛称），拆成单个的名和姓，勾选后放进“待配对英文”。<b>不会改动现有词条</b>，已在词库里的英文自动跳过。点待配对里的名字 → 跳到英文里下一处出现的地方（蓝色下划线标出），英文原文自动填好，再在中文框选中对应译名按 <kbd>Alt</kbd>+<kbd>G</kbd> 就成了正式词条；再点同一个名字 = 下一处。本集没出现的名字显示为灰色，会留着等以后几集。</p>
+  <p>• <b>人名加分隔号</b>：原中文字幕常把全名连着写（如“约翰保罗盖蒂”）。点页签里的“人名加分隔号”，会用词库里的译名（繁中、简体两种都认）找出中文里<b>两个词条紧挨着</b>的地方，弹窗列出要改的行，确认后在中间加分隔号（约翰·保罗·盖蒂）。英文里这几个名字确实连着出现（如 John Paul Getty，在本行附近或本集别处）的默认勾选；英文里没连着出现过的标黄、默认不勾，需要你判断。点预览里的分隔号可单独取消，分隔号样式可选（· / ‧ / ・ / •），可撤销。</p>
+  <p>• <b>跨项目</b>：词库不属于某个项目，而是单独保存在<b>本浏览器</b>里，在这个浏览器里打开任何项目都能直接用；替换后词条仍保留，下一集“自动对齐”时会自动替换（可在页签里关掉）。要换浏览器 / 换电脑 / 给不同的剧分别建词库，用“导出词库文件”存成独立的 <code>.json</code>，到那边“导入词库文件”即可（与现有词库合并，同一个繁中译名只保留一条）。“保存项目”的项目文件里也会附带一份当时的词库，打开项目时自动合并进来。</p>
+  <h3>说明</h3>
+  <p>• 自动对齐：先在 ±3 分钟内搜索让中英文字幕“时间重叠最多”的整体偏移，再按每 30 秒为中心、5 分钟窗口做局部微调（可应对中途偏移变化）。之后每条中文按时间重叠分给英文条目；跨两条英文的中文会按标点/空格、依重叠时长比例自动拆开，并标橙待检查。</p>
+  <p>• 右侧中文原字幕会根据你的编辑结果判断“是否已用上”（附近条目里能找到这段文字即算用上）。如果某条你确实不想要，悬停点“忽略”。</p>
+  <p>• 视频试看依赖浏览器解码：mp4(H.264/AAC) 基本都行；mkv 在 Chrome/Edge 里常可播放，但 HEVC、AC3/DTS 音轨可能无画面或无声。</p>
+  <p>• 进度按项目自动缓存在本浏览器里：每对“英文文件名 + 中文文件名”算一个项目，多集可同时保留（最多 50 个，超出时删掉最久没动过的）。点“缓存项目…”可以切换到别的集或删除；切换前当前项目会先存好。换浏览器或清除浏览器数据会丢，重要进度请点“保存项目”存成文件。</p>
+  <p style="text-align:right"><button onclick="document.getElementById('help').style.display='none'">关闭</button></p>
+</div></div>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const FS=(window.CSS&&CSS.supports&&CSS.supports('field-sizing','content'));
+if(FS) document.body.classList.add('fs');
+
+/* ================= 基础工具 ================= */
+function decodeBuffer(buf){
+  const b=new Uint8Array(buf);
+  if(b[0]===0xEF&&b[1]===0xBB&&b[2]===0xBF) return new TextDecoder('utf-8').decode(b.subarray(3));
+  if(b[0]===0xFF&&b[1]===0xFE) return new TextDecoder('utf-16le').decode(b.subarray(2));
+  if(b[0]===0xFE&&b[1]===0xFF) return new TextDecoder('utf-16be').decode(b.subarray(2));
+  try{return new TextDecoder('utf-8',{fatal:true}).decode(b);}catch(e){}
+  try{return new TextDecoder('gb18030').decode(b);}catch(e){}
+  return new TextDecoder('utf-8').decode(b);
+}
+const TIME_RE=/(\d{1,2}):(\d{1,2}):(\d{1,2})(?:[,.:](\d{1,3}))?\s*-->\s*(\d{1,2}):(\d{1,2}):(\d{1,2})(?:[,.:](\d{1,3}))?/;
+function toMs(h,m,s,f){f=((f||'0')+'00').slice(0,3);return((+h*60+ +m)*60+ +s)*1000+ +f;}
+function fmt(ms){ms=Math.max(0,Math.round(ms));const h=Math.floor(ms/3600000),m=Math.floor(ms/60000)%60,s=Math.floor(ms/1000)%60,x=ms%1000;
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+','+String(x).padStart(3,'0');}
+function fmtOff(ms){return (ms>=0?'+':'−')+(Math.abs(ms)/1000).toFixed(2)+'s';}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function lb(arr,x){let lo=0,hi=arr.length;while(lo<hi){const m=(lo+hi)>>1;if(arr[m]<x)lo=m+1;else hi=m;}return lo;}
+const isMusic=t=>/[♪♫]/.test(t);
+const isBracketed=t=>/^\s*[（(【\[〔][^（()）【】\[\]〔〕]*[）)】\]〕]\s*$/.test(t.replace(/\n/g,''));
+const CJK=/[㐀-鿿豈-﫿　-〿＀-￯]/;
+const norm=t=>t.normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]/gu,'');
+
+function parseSRT(text){
+  text=text.replace(/\r\n?/g,'\n');
+  const lines=text.split('\n');const cues=[];let cur=null;
+  const close=()=>{if(!cur)return;let L=cur.lines;
+    while(L.length&&!L[L.length-1].trim())L.pop();
+    // 末尾的纯数字行是下一条的序号
+    if(L.length&&/^\s*\d+\s*$/.test(L[L.length-1])&&(L.length===1||!L[L.length-2].trim()))L.pop();
+    cur.text=L.map(l=>l.trim()).filter(Boolean).join('\n');delete cur.lines;cues.push(cur);};
+  for(const line of lines){const m=line.match(TIME_RE);
+    if(m){close();cur={s:toMs(m[1],m[2],m[3],m[4]),e:toMs(m[5],m[6],m[7],m[8]),lines:[]};}
+    else if(cur)cur.lines.push(line);}
+  close();
+  cues.sort((a,b)=>a.s-b.s);
+  return cues;
+}
+const cleanCN=t=>t.replace(/\{\\[^}]*\}/g,'').replace(/<[^>]+>/g,'').split('\n').map(s=>s.trim()).filter(Boolean).join('\n');
+const cleanEN=t=>t.replace(/\{\\[^}]*\}/g,'');
+
+/* ================= 状态 ================= */
+const DEF_SET={offMode:'auto',manualOff:0,soloBracket:true,cnNL:'smart',cnPunct:true,ellMode:'follow',dlgFix:true,pqFix:true,order:'cn',oneLine:true,cnTpl:'{text}',enTpl:'{text}',bom:true,fmt:'ass',srtNL:'nl',srtMark:true,cnFont:'Microsoft YaHei',cnSize:66,enFont:'Arial',enSize:44,trMusic:true};
+const S={enName:'',cnName:'',en:[],cn:[],rows:[],cur:-1,offInfo:'',settings:{...DEF_SET},cnRepl:[]};
+let lastSel=null;
+let hist=[],fut=[],pendingSnap=null;
+
+/* ================= 对齐算法 ================= */
+function makeOverlapper(en){
+  const starts=en.map(c=>c.s);let maxDur=1000;for(const c of en)maxDur=Math.max(maxDur,c.e-c.s);
+  return (cues,off)=>{let tot=0;for(const c of cues){const s=c.s+off,e=c.e+off;
+    for(let k=lb(starts,s-maxDur);k<en.length&&en[k].s<e;k++){const o=Math.min(e,en[k].e)-Math.max(s,en[k].s);if(o>0)tot+=o;}}return tot;};
+}
+function searchOff(ov,cues,center,range,step){
+  let best=center,bs=-1;
+  for(let d=0;d<=range;d+=step){for(const o of d?[center+d,center-d]:[center]){const sc=ov(cues,o);if(sc>bs+1e-6){bs=sc;best=o;}}}
+  return {off:best,score:bs};
+}
+function globalOffset(en,cn){
+  const sp=en.filter(c=>!isMusic(c.text));const ov=makeOverlapper(sp.length>20?sp:en);
+  let r=searchOff(ov,cn,0,180000,100);
+  r=searchOff(ov,cn,r.off,150,10);
+  return r.off;
+}
+function localOffsets(en,cn,g){
+  const sp=en.filter(c=>!isMusic(c.text));const ov=makeOverlapper(sp.length>20?sp:en);
+  const W=150000,STEP=30000,R=15000;
+  const T0=cn[0].s,T1=cn[cn.length-1].s;const centers=[];for(let t=T0;t<=T1+1;t+=STEP)centers.push(t);
+  let vals=centers.map(t=>{const seg=cn.filter(c=>c.s>=t-W&&c.s<t+W);if(seg.length<8)return null;
+    let r=searchOff(ov,seg,g,R,50);r=searchOff(ov,seg,r.off,40,10);return r.off;});
+  // 空值用最近邻补齐
+  if(vals.every(v=>v==null))return cn.map(()=>g);
+  const raw=vals.slice();
+  vals=raw.map((v,i)=>{if(v!=null)return v;for(let d=1;;d++){if(i-d>=0&&raw[i-d]!=null)return raw[i-d];if(i+d<raw.length&&raw[i+d]!=null)return raw[i+d];}});
+  // 中值滤波（宽 5）
+  const med=vals.map((v,i)=>{const w=vals.slice(Math.max(0,i-2),i+3).sort((a,b)=>a-b);return w[w.length>>1];});
+  return cn.map(c=>{const x=(c.s-T0)/STEP;const i=Math.floor(x);if(i<0)return med[0];if(i>=med.length-1)return med[med.length-1];
+    const f=x-i;return Math.round(med[i]*(1-f)+med[i+1]*f);});
+}
+/* ---- 中文原有换行：判断合并时要不要空格 ---- */
+const NL_SP_START=/^(所以|但是|但|可是|因为|而且|然后|如果|要是|不过|还是|或者|并且|于是|那么|只是|其实|可能|也许|反正|难道|既然|虽然|即使|否则|不然|除非|只要|只有|无论|不管|对了|好吧|好了|没错|是的|不是|当然|嘿|喂|哦|噢|嗯|呃|哇|天哪|天啊)/;
+const NL_SP_START_W=/^(我|你|他|她|它|咱|您|这|那|谁|大家|有人|没人)/;
+const NL_SP_END=/[吗呢吧啊呀啦嘛哦哈嘿哎呗喔噢哟]$/;
+const NL_JN_END=/[在把被和跟与及给对从向往于将让比之以或且]$/;
+const NL_JN_END_W=/[的个只位条栋座件本张些种次句]$/;
+const NL_JN_START=/^[的地得了着过们之]/;
+const NL_ABBR=/\b(Mr|Mrs|Ms|Dr|St|Jr|Sr|vs|No)\.$/i;
+function enBounds(en){
+  // 英文断句处在字母序列中的相对位置
+  const t=(en||'').replace(/\n/g,' ');let n=0;const pos=[];
+  for(let i=0;i<t.length;i++){const ch=t[i];
+    if(/[\p{L}\p{N}]/u.test(ch)){n++;continue;}
+    if(/[,;:?!…|]/.test(ch)||(ch==='-'&&t[i+1]==='-')||(ch==='-'&&/\s/.test(t[i-1]||'')&&/\s/.test(t[i+1]||''))){pos.push(n);continue;}
+    if(ch==='.'&&!/\d/.test(t[i+1]||'')&&!NL_ABBR.test(t.slice(Math.max(0,i-4),i+1)))pos.push(n);
+  }
+  return {L:n,b:[...new Set(pos)].filter(p=>p>n*0.04&&p<n*0.96).map(p=>p/n)};
+}
+function judgeNL(lines,k,en){
+  const a=lines[k],b=lines[k+1];let s=0;
+  if(NL_SP_END.test(a))s+=3;
+  if(NL_SP_START.test(b))s+=3;else if(NL_SP_START_W.test(b))s+=1.5;
+  if(NL_JN_END.test(a))s-=3;else if(NL_JN_END_W.test(a))s-=1.5;
+  if(NL_JN_START.test(b))s-=3;
+  if(/\d$/.test(a)&&CJK.test(b[0]))s-=3;
+  const E=enBounds(en);
+  if(E.L>=8){
+    const tot=lines.reduce((x,l)=>x+tw(l),0)||1,f=lines.slice(0,k+1).reduce((x,l)=>x+tw(l),0)/tot;
+    if(!E.b.length)s-=E.L>=20?2:1;
+    else{const d=Math.min(...E.b.map(p=>Math.abs(p-f)));s+=d<=0.12?2:d<=0.2?1:-0.5;}
+  }
+  return s;
+}
+// 返回每个换行处的 {sep, unsure}
+function lineSeps(lines,mode,en){
+  return lines.slice(0,-1).map((a,k)=>{const b=lines[k+1];
+    if(mode==='keep')return {sep:'\n'};if(mode==='space')return {sep:' '};
+    const ae=a.slice(-1),bs=b[0]||'';
+    if(/^[-–—―－](?![-–—―－])/.test(b))return {sep:' '};
+    if(/[，。！？；：、…⋯—～「『（“‘【《]/.test(ae)||/[，。！？；：、」』）”’】》]/.test(bs))return {sep:''};
+    const cj=c=>CJK.test(c)||/\d/.test(c);
+    if(!cj(ae)||!cj(bs))return {sep:' '};
+    const sc=judgeNL(lines,k,en);
+    return {sep:sc>=0?' ':'',unsure:Math.abs(sc)<2,a:a.slice(-6),b:b.slice(0,6)};
+  });
+}
+function flattenCNx(text,mode,en){
+  const L=text.split('\n');const seps=lineSeps(L,mode,en);let out=L[0]||'';const uns=[];
+  for(let i=1;i<L.length;i++){const sp=seps[i-1];out+=sp.sep+L[i];if(sp.unsure)uns.push({a:sp.a,b:sp.b});}
+  return {text:out,uns};
+}
+const flattenCN=(text,mode,en)=>flattenCNx(text,mode,en).text;
+const punctVariants=t=>[...new Set([t,normPunct(t,'','space'),normPunct(t,'...','dots')])];
+// 在已合并的中文里定位某个换行处
+function findJunction(cn,j){
+  if(!cn)return null;
+  const VA=punctVariants(j.a).map(v=>v.slice(-4)).filter(Boolean),VB=punctVariants(j.b).map(v=>v.slice(0,4)).filter(Boolean);
+  for(const ta of VA)for(const hb of VB)for(const sp of ['',' ']){const i=cn.indexOf(ta+sp+hb);if(i>=0)return {pos:i+ta.length,sp:!!sp};}
+  return null;
+}
+const hasNl=r=>!!(r.nlj&&r.nlj.length);
+// 按当前规则重新判断已有进度里的中文换行处
+function repairNL(){
+  let n=0;const W=20000;
+  for(const c of S.cn){
+    const L=c.text.split('\n').map(s=>s.trim()).filter(Boolean);if(L.length<2)continue;
+    const os=c.os??c.s,oe=c.oe??c.e;
+    const near=S.rows.filter(r=>r.s<=oe+W&&r.e>=os-W&&r.cn);if(!near.length)continue;
+    const ov=near.filter(r=>Math.min(oe,r.e)-Math.max(os,r.s)>0);
+    const seps=lineSeps(L,'smart',(ov.length?ov:near).map(r=>r.en).join(' | '));
+    seps.forEach(sp=>{if(sp.a===undefined)return;const j={a:sp.a,b:sp.b};
+      for(const r of near){if(r.nlOk)continue;const f=findJunction(r.cn,j);if(!f)continue;
+        const want=sp.sep===' ';
+        if(want!==f.sp){r.cn=want?r.cn.slice(0,f.pos)+' '+r.cn.slice(f.pos):r.cn.slice(0,f.pos)+r.cn.slice(f.pos+1);n++;}
+        if(sp.unsure){r.nlj=r.nlj||[];if(!r.nlj.some(x=>x.a===j.a&&x.b===j.b))r.nlj.push(j);}
+        break;}
+    });
+  }
+  return n;
+}
+const BREAK=/[，。！？；：、…,.!?;:~～]/,CLOSE=/[，。！？；：、…,.!?;:”’」』）)\]】~～—]/;
+function tokenize(text,mode,en){
+  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);const toks=[];const seps=lineSeps(lines,mode,en);
+  lines.forEach((line,li)=>{let buf='';
+    const flush=sep=>{if(buf.trim())toks.push({t:buf.trim(),sep});else if(sep===' '&&toks.length&&toks[toks.length-1].sep==='')toks[toks.length-1].sep=' ';buf='';};
+    for(let i=0;i<line.length;i++){const ch=line[i];
+      if(/\s/.test(ch)){flush(' ');continue;}
+      buf+=ch;
+      if(BREAK.test(ch)){while(i+1<line.length&&CLOSE.test(line[i+1]))buf+=line[++i];flush('');}
+    }
+    flush('');
+    if(li<lines.length-1&&toks.length)toks[toks.length-1].sep=seps[li].sep;
+  });
+  if(toks.length)toks[toks.length-1].sep='';
+  return toks;
+}
+const tw=t=>t.replace(/[\p{P}\p{S}\s]/gu,'').length;
+const stripTail=s=>s.replace(/[，,、；;：:\s]+$/,'');
+function splitText(text,targets,mode,en){
+  const toks=tokenize(text,mode,en);if(toks.length<2)return null;
+  const cum=[0];toks.forEach(t=>cum.push(cum[cum.length-1]+tw(t.t)));const W=cum[cum.length-1]||1;
+  let prev=0;const cuts=[];
+  for(const tf of targets){const target=tf*W;let best=prev,bd=Infinity;for(let b=prev;b<=toks.length;b++){const d=Math.abs(cum[b]-target);if(d<bd-1e-9){bd=d;best=b;}}cuts.push(best);prev=best;}
+  const bounds=[0,...cuts,toks.length];const pieces=[];
+  for(let j=0;j<bounds.length-1;j++){let s='';for(let k=bounds[j];k<bounds[j+1];k++){s+=toks[k].t;if(k<bounds[j+1]-1)s+=toks[k].sep;}pieces.push(stripTail(s.trim()));}
+  return pieces;
+}
+/* ================= 中文整理：标点 / 对白破折号 ================= */
+const ELL_RE=/[…⋯]+|\.{2,}|。{2,}|．{2,}/g;
+const HAS_EN_ELL=/\.{2,}|[…⋯]/;
+const PUNCT_MAP={'！':'!','？':'?','；':';','：':':','“':'"','”':'"','„':'"','‘':"'",'’':"'",'「':'"','」':'"','『':"'",'』':"'",
+  '（':'(','）':')','【':'[','】':']','〔':'(','〕':')','［':'[','］':']','～':'~','〜':'~','　':' ','﹖':'?','﹗':'!'};
+const PUNCT_RE=new RegExp('['+Object.keys(PUNCT_MAP).join('')+']','g');
+function normPunct(t,en,mode){
+  if(!t)return t;
+  const keepEll=mode==='dots'||(mode!=='space'&&HAS_EN_ELL.test(en||''));
+  t=t.replace(ELL_RE,keepEll?'...':' ');
+  // 单个破折号视为对白“-”，“——”→“--”
+  t=t.replace(/(^|\s)[—―－](?![—―－])/gm,'$1-').replace(/[—―]+/g,'--').replace(/－/g,'-');
+  t=t.replace(/[，。、､｡﹐﹒]/g,' ');
+  t=t.replace(PUNCT_RE,c=>PUNCT_MAP[c]);
+  t=t.replace(/[！-～]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  t=t.replace(/([!?;:])(?=[㐀-鿿豈-﫿(\[])/g,'$1 ');
+  return t.split('\n').map(l=>l.replace(/[ \t]+/g,' ').replace(/ +([!?;:,)\]~])/g,'$1').replace(/([(\[]) +/g,'$1').trim()).filter(Boolean).join('\n');
+}
+// 英文对白：返回 {segs:[{dash,text,nl}],N,dashCount} 或 null
+const DASH_AT=/^([-–—])(?![-–—])(\s*)(?=\S)/;
+function enLineSegs(line){
+  const segs=[];let dash='',rest=line;const m=line.match(DASH_AT);
+  if(m){dash='-'+(m[2]?' ':'');rest=line.slice(m[0].length);}
+  const re=/(\S)(\s+)([-–—])(?![-–—])(\s*)(?=\S)/g;let last=0,r;
+  while((r=re.exec(rest))){
+    const before=rest.slice(last,r.index+1),after=rest.slice(r.index+r[0].length);
+    const nextW=((after.match(/^[\w']+/)||[''])[0]).toLowerCase(),prevW=((before.match(/([\w']+)\W*$/)||['',''])[1]).toLowerCase();
+    const ok=/[.?!…"'”’♪)\]~-]/.test(r[1])||(/^[A-Z0-9"'“‘¿¡♪]/.test(after)&&nextW!==prevW);
+    if(!ok)continue;
+    segs.push({dash,text:before.trim()});dash='-'+(r[4]?' ':'');last=r.index+r[0].length;
+  }
+  segs.push({dash,text:rest.slice(last).trim()});
+  return segs;
+}
+function parseEnDialogue(en){
+  if(!en||!/[-–—]/.test(en))return null;
+  const lines=en.split('\n').map(s=>s.trim()).filter(Boolean);const segs=[];
+  lines.forEach((line,li)=>enLineSegs(line).forEach((s,k)=>{
+    if(k===0&&!s.dash&&segs.length){segs[segs.length-1].text+=' '+s.text;return;}
+    segs.push({...s,nl:k===0&&li>0});}));
+  const sg=segs.filter(s=>s.text);const dashCount=sg.filter(s=>s.dash).length;
+  if(sg.length<2||!dashCount)return null;
+  return {segs:sg,N:sg.length,dashCount};
+}
+// 中文按已有的对白“-”切段
+function cnDashSegs(cn){
+  const re=/(^|\s|[?!？！。…])([-–—])(?![-–—])\s*(?=\S)/gm;const out=[];let last=0,dash=false,m;
+  while((m=re.exec(cn))){const st=m.index+m[1].length;const x=cn.slice(last,st).trim();if(x)out.push({dash,text:x});dash=true;last=m.index+m[0].length;}
+  const x=cn.slice(last).trim();if(x)out.push({dash,text:x});
+  return out;
+}
+// 按权重把中文切成 N 段
+function splitN(text,weights){
+  const N=weights.length,L=text.length;
+  const cw=[0];for(let i=0;i<L;i++)cw.push(cw[i]+(/[\p{P}\p{S}\s]/u.test(text[i])?0:1));
+  const W=cw[L];if(W<N)return null;
+  const cands=[];
+  for(let p=1;p<L;p++){const b=text[p];
+    if(/\s/.test(b)||/[，。！？；：、…⋯,.!?;:”’」』）)\]】~～—―-]/.test(b))continue;
+    let q=p-1,ws=false,nl=false;while(q>=0&&/\s/.test(text[q])){ws=true;if(text[q]==='\n')nl=true;q--;}
+    if(q<0)continue;const pc=text[q];let st=0;
+    if(nl||/[。！？!?]/.test(pc)||(/[”’"'」』）)]/.test(pc)&&/[。！？!?]/.test(text[q-1]||'')))st=3;
+    else if(/[…⋯—―]/.test(pc)||pc==='.'||(pc==='-'&&text[q-1]==='-')||ws)st=2;
+    else if(/[，,；;：:、]/.test(pc))st=1;
+    if(st)cands.push({p,st});}
+  const tot=weights.reduce((a,b)=>a+b,0)||1;let acc=0,prev=0;const cuts=[];
+  for(let j=0;j<N-1;j++){acc+=weights[j]/tot;const tgt=acc*W,need=N-2-j;
+    const av=cands.filter(c=>c.p>prev&&cw[c.p]-cw[prev]>=1);let best=null,bc=Infinity;
+    av.forEach((c,idx)=>{if(av.length-idx-1<need)return;const cost=Math.abs(cw[c.p]-tgt)/W+(3-c.st)*0.12;if(cost<bc){bc=cost;best=c;}});
+    if(!best)return null;cuts.push(best.p);prev=best.p;}
+  if(W-cw[prev]<1)return null;
+  const bd=[0,...cuts,L];
+  return bd.slice(0,-1).map((s,j)=>{const x=text.slice(s,bd[j+1]).trim();return j<N-1?stripTail(x):x;});
+}
+// 英文是对白而中文缺“-”时自动补上
+function checkDialogue(r,hints){
+  if(r.solo||r.dlgOk)return;
+  const cn=(r.cn||'').trim();if(!cn)return;
+  const D=parseEnDialogue(r.en);
+  if(!D){if(r.dlg==='fail')r.dlg='';return;}
+  const cs=cnDashSegs(cn),cnt=cs.filter(s=>s.dash).length;
+  if(cnt>=D.dashCount){if(r.dlg==='fail')r.dlg='';return;}
+  let pieces=null;
+  if(cs.length===D.N)pieces=cs.map(s=>s.text);
+  else if(cs.length===1){
+    if(!cs[0].dash&&hints&&hints.length===D.N&&hints.every(h=>tw(h)>0))pieces=hints;
+    else pieces=splitN(cs[0].text,D.segs.map(s=>Math.max(1,tw(s.text))));
+  }
+  if(!pieces){r.dlg='fail';return;}
+  r.cn=pieces.map((p,j)=>(j?(D.segs[j].nl?'\n':' '):'')+D.segs[j].dash+p.trim()).join('');
+  r.dlg='auto';
+}
+const dlgPending=r=>{if(r.dlg!=='fail')return false;const D=parseEnDialogue(r.en);return !!D&&cnDashSegs((r.cn||'').trim()).filter(s=>s.dash).length<D.dashCount;};
+
+/* ---- 按英文补中文缺的 ... ! ? 和引号 ---- */
+const EN_Q=/["“”]/,CN_HASQ=/["“”„「」『』《》‘’']/,QCH=/["“”„「」『』]/;
+const ELL_IN=/\.{2,}|[…⋯]|。{2,}/,ELL_G=/\.{2,}|[…⋯]+|。{2,}/g;
+function pqSepChar(t,i,en){
+  const ch=t[i],p=t[i-1]||'',nx=t[i+1]||'';
+  if(/\s/.test(ch)||QCH.test(ch))return true;
+  if(/[—―]/.test(ch))return true;
+  if(/[-–]/.test(ch))return !p||/\s/.test(p)||/[-–]/.test(p)||/[-–]/.test(nx);
+  if(ch==='.'){if(/\d/.test(p)&&/\d/.test(nx))return false;if(en&&NL_ABBR.test(t.slice(Math.max(0,i-4),i+1)))return false;return true;}
+  return en?/[,;:?!…]/.test(ch):/[，。、！？；：…⋯～,;:?!~]/.test(ch);
+}
+const pqBreak=ch=>!/\s/.test(ch)&&!QCH.test(ch);
+// 按断句切分：segs = 文字段，runs = 断句处（含句首、句尾）
+function pqParse(t,en){
+  const n=t.length;if(!n)return null;const sep=[];for(let i=0;i<n;i++)sep.push(pqSepChar(t,i,en));
+  const raw=[];for(let i=0;i<n;){let j=i;while(j<n&&sep[j]===sep[i])j++;raw.push({s:i,e:j,sep:sep[i]});i=j;}
+  if(!raw.some(x=>!x.sep))return null;
+  const runs=[],segs=[];let k=0,cur=null;
+  if(raw[0].sep){runs.push({s:raw[0].s,e:raw[0].e});k=1;}else runs.push({s:0,e:0});
+  for(;k<raw.length;k++){const x=raw[k];
+    if(!x.sep){if(cur)cur.e=x.e;else cur={s:x.s,e:x.e};continue;}
+    const last=k===raw.length-1;let bd=last||[...t.slice(x.s,x.e)].some(pqBreak);
+    if(!bd&&!en){const a=t[x.s-1]||'',b=t[x.e]||'';bd=!/[A-Za-z]/.test(a)&&!/[A-Za-z]/.test(b);}
+    if(bd){segs.push(cur);cur=null;runs.push({s:x.s,e:x.e});}else cur.e=x.e;
+  }
+  if(cur){segs.push(cur);runs.push({s:n,e:n});}
+  return {t,segs,runs};
+}
+const pqRun=(P,i)=>P.t.slice(P.runs[i].s,P.runs[i].e);
+// 英文断句处 → 中文对应的断句处
+function pqMap(E,C){
+  const fr=P=>{const w=P.segs.map(s=>Math.max(1,tw(P.t.slice(s.s,s.e))));const T=w.reduce((a,b)=>a+b,0);let a=0;return w.map(x=>(a+=x)/T);};
+  const fE=fr(E),fC=fr(C),same=E.segs.length===C.segs.length;
+  return k=>{const f=fE[k-1];
+    if(same){const d=Math.abs(fC[k-1]-f);if(d<=0.3)return {m:k,sure:d<=0.2||(/[-–]/.test(pqRun(E,k))&&/[-–]/.test(pqRun(C,k)))};}
+    let bm=-1,bd=1;for(let m=1;m<C.segs.length;m++){const d=Math.abs(fC[m-1]-f);if(d<bd){bd=d;bm=m;}}
+    return bm>0&&bd<=0.15?{m:bm,sure:false}:null;};
+}
+const pqApply=(t,ins)=>{ins.sort((a,b)=>b.pos-a.pos||(b.ord||0)-(a.ord||0));for(const x of ins)t=t.slice(0,x.pos)+x.str+t.slice(x.pos+(x.del||0));return t;};
+const enPlain=en=>(en||'').replace(/<[^>]+>/g,'').replace(/\{[^}]*\}/g,'');
+function pqPending(r,set){
+  set=set||S.settings;const en=enPlain(r.en),cn=r.cn||'';if(!cn.trim()||!en.trim())return false;
+  if(EN_Q.test(en)&&!CN_HASQ.test(cn))return true;
+  if(set.ellMode!=='space'&&(en.match(ELL_G)||[]).length>(cn.match(ELL_G)||[]).length)return true;
+  if((en.match(/[?!]+/g)||[]).length>(cn.match(/[?!？！]+/g)||[]).length)return true;
+  return false;
+}
+function fillPunct(r,set){
+  if(r.solo||r.pqOk)return;
+  let cn=r.cn||'';const en=enPlain(r.en);if(!cn.trim()||!en.trim())return;
+  const half=set.cnPunct!==false,ELL=half?'...':'……',OQ=half?'"':'“',CQ=half?'"':'”';
+  const notes=[];let review=false,fail=false;
+  // 1) 省略号
+  if(set.ellMode!=='space'&&ELL_IN.test(en)){
+    const E=pqParse(en,true),C=pqParse(cn,false);
+    if(E&&C){const nE=E.segs.length,nC=C.segs.length,ins=[];
+      if(ELL_IN.test(pqRun(E,0))&&!ELL_IN.test(pqRun(C,0)))ins.push({pos:C.runs[0].e,str:ELL});
+      if(ELL_IN.test(pqRun(E,nE))&&!ELL_IN.test(pqRun(C,nC)))ins.push({pos:C.runs[nC].s,str:ELL});
+      let midE=0,midC=0;for(let k=1;k<nE;k++)if(ELL_IN.test(pqRun(E,k)))midE++;for(let m=1;m<nC;m++)if(ELL_IN.test(pqRun(C,m)))midC++;
+      if(midE>midC){const map=pqMap(E,C),used=new Set();
+        for(let k=1;k<nE;k++){if(!ELL_IN.test(pqRun(E,k)))continue;
+          const mp=map(k);
+          if(!mp||used.has(mp.m)){fail=true;notes.push('...：中文里找不到和英文对应的停顿处，请手动补（或确认不需要）');continue;}
+          used.add(mp.m);if(ELL_IN.test(pqRun(C,mp.m)))continue;
+          const R=C.runs[mp.m],txt=pqRun(C,mp.m),lead=(txt.match(/^[^\s\-–—―"“”„「」『』]*/)||[''])[0],rest=txt.slice(lead.length);
+          if(/^[，。、,.;；]*$/.test(lead)){
+            if(/^\s*$/.test(rest)){const lat=/[A-Za-z]/.test(cn[R.e]||'');ins.push({pos:R.s,del:txt.length,str:ELL+(lat?' ':'')});}
+            else ins.push({pos:R.s,del:lead.length,str:ELL});
+          }else ins.push({pos:R.s,str:ELL});
+          if(!mp.sure){review=true;notes.push('...：已按位置补在句子中间，请核对');}
+        }}
+      cn=pqApply(cn,ins);
+    }
+  }
+  // 2) 问号 / 感叹号
+  if(/[?!]/.test(en)){
+    const E=pqParse(en,true),C=pqParse(cn,false);
+    if(E&&C){const nE=E.segs.length,nC=C.segs.length,ins=[],TERM=/[?!？！]/;
+      const tmk=t=>{const m=t.match(/[?!]+/);return m?(half?m[0]:m[0].replace(/\?/g,'？').replace(/!/g,'！')):'';};
+      const put=(m,mk,trail,enRun)=>{const R=C.runs[m],txt=pqRun(C,m),lead=(txt.match(/^[^\s\-–—―"“”„「」『』]*/)||[''])[0],rest=txt.slice(lead.length);
+        const sp=!trail&&half&&!rest&&CJK.test(cn[R.e]||'')?' ':'';
+        if(trail&&/["“”][^?!]*[?!]/.test(enRun)){const q=txt.match(/^["”」』]+/);if(q){ins.push({pos:R.s+q[0].length,str:mk});return;}}
+        if(lead&&!ELL_IN.test(lead)&&/^[，。、,.]+$/.test(lead))ins.push({pos:R.s,del:lead.length,str:mk+sp});
+        else ins.push({pos:R.s+lead.length,str:mk+sp});};
+      const et=pqRun(E,nE);
+      if(/[?!]/.test(et)&&!TERM.test(pqRun(C,nC)))put(nC,tmk(et),true,et);
+      let midE=0,midC=0;for(let k=1;k<nE;k++)if(/[?!]/.test(pqRun(E,k)))midE++;for(let m=1;m<nC;m++)if(TERM.test(pqRun(C,m)))midC++;
+      if(midE>midC){const map=pqMap(E,C),used=new Set();
+        for(let k=1;k<nE;k++){const er=pqRun(E,k);if(!/[?!]/.test(er))continue;
+          const mp=map(k);
+          if(!mp||used.has(mp.m)){fail=true;notes.push(tmk(er)+'：中文里找不到和英文对应的断句处，请手动补（或确认不需要）');continue;}
+          used.add(mp.m);if(TERM.test(pqRun(C,mp.m)))continue;
+          put(mp.m,tmk(er),false,er);
+          if(!mp.sure){review=true;notes.push(tmk(er)+'：已按位置补在句子中间，请核对');}
+        }}
+      cn=pqApply(cn,ins);
+    }
+  }
+  // 3) 双引号
+  if(EN_Q.test(en)&&!CN_HASQ.test(cn)){
+    const E=pqParse(en,true),C=pqParse(cn,false);
+    if(E&&C){const nE=E.segs.length,nC=C.segs.length,map=pqMap(E,C),ins=[];let bad=false,mid=false;
+      const isBrk=c=>pqBreak(c)&&!/[-–—―]/.test(c);
+      for(let i=0;i<en.length&&!bad;i++){const ch=en[i];if(!EN_Q.test(ch))continue;
+        const p=en[i-1]||'',open=ch==='“'||(ch==='"'&&(!p||/[\s(\[\-–—]/.test(p)));
+        const ri=E.runs.findIndex(R=>i>=R.s&&i<R.e);
+        if(ri<0){bad=true;break;}
+        const rt=pqRun(E,ri),off=i-E.runs[ri].s;
+        const brkBefore=[...rt.slice(0,off)].some(isBrk),ellAfter=ELL_IN.test(rt.slice(off+1));
+        let m;if(ri===0)m=0;else if(ri===nE)m=nC;else{const mp=map(ri);if(!mp){bad=true;break;}m=mp.m;mid=true;}
+        if((open&&m===nC)||(!open&&m===0)){bad=true;break;}
+        const R=C.runs[m],txt=pqRun(C,m);let pos;
+        if(open){const ei=txt.search(/\.{2,}|[…⋯]/);pos=ellAfter&&ei>=0?R.s+ei:R.e;}
+        else{const lead=(txt.match(/^[^\s\-–—―]*/)||[''])[0];pos=brkBefore?R.s+lead.length:R.s;}
+        ins.push({pos,str:open?OQ:CQ,ord:open?1:0});
+      }
+      if(bad){fail=true;notes.push('引号：英文引号不在断句处（或中文找不到对应位置），没法自动放，请手动补');}
+      else{cn=pqApply(cn,ins);if(mid){review=true;notes.push('引号：已补在句子中间，请核对位置（中文语序可能和英文不同）');}}
+    }
+  }
+  r.cn=cn;
+  const st=fail?'fail':review?'auto':'';
+  if(st){r.pq=st;r.pqN=notes.join('\n');}
+  else if(r.pq==='fail'&&!pqPending(r,set)){r.pq='';delete r.pqN;}
+}
+
+/* ---- 中文自带对白跨多条英文时：优先在“-”处切开 ---- */
+function dlgBounds(t){
+  const u=(t||'').replace(/[－―]/g,'-'),re=/(^|\s|[?!？！。…])([-–—])(?![-–—])\s*(?=\S)/gm,b=[];let m;
+  while((m=re.exec(u)))b.push(m.index+m[1].length);return b;
+}
+function dlgSplit(t,targets){
+  const b=dlgBounds(t);if(!b.length)return null;
+  const st=[0,...b.filter(p=>p>0)],segs=st.map((s,i)=>t.slice(s,i+1<st.length?st[i+1]:t.length).trim());
+  const S=segs.length,N=targets.length+1;if(S<N||S>10)return null;
+  const w=segs.map(s=>Math.max(1,tw(s))),W=w.reduce((a,x)=>a+x,0),cum=[0];w.forEach(x=>cum.push(cum[cum.length-1]+x));
+  let best=null,bd=Infinity;
+  const rec=(j,from,cuts,dev)=>{if(j===N-1){if(dev<bd){bd=dev;best=cuts.slice();}return;}
+    for(let c=from;c<=S-(N-1-j);c++){cuts.push(c);rec(j+1,c+1,cuts,Math.max(dev,Math.abs(cum[c]/W-targets[j])));cuts.pop();}};
+  rec(0,1,[],0);
+  if(!best||bd>0.35)return null;
+  const bds=[0,...best,S];
+  return bds.slice(0,-1).map((s,j)=>{const x=segs.slice(s,bds[j+1]).join(' ').trim();return j<N-1?stripTail(x):x;});
+}
+const stripLeadDash=p=>{const b=dlgBounds(p);return b.length===1&&b[0]===0?p.replace(/^\s*[-–—―－]\s*/,''):p;};
+
+const FLAG_RANK={'':0,near:1,weak:2,split:3};
+function assign(en,cn,set){
+  const rows=en.map(c=>({s:c.s,e:c.e,en:c.text,cn:'',flag:'',parts:[]}));
+  const starts=rows.map(r=>r.s);let maxDur=1000;for(const r of rows)maxDur=Math.max(maxDur,r.e-r.s);
+  const solos=[];
+  const add=(k,t,j,text,flag,uns,dp)=>{if(!text)return;const r=rows[k];r.parts.push({t,j,text,dp:!!dp});if(FLAG_RANK[flag]>FLAG_RANK[r.flag])r.flag=flag;if(uns&&uns.length)r.nljC=(r.nljC||[]).concat(uns);};
+  cn.forEach(c=>{
+    const text=c.text;if(!text.trim())return;
+    const s=c.os,e=c.oe;
+    if(set.soloBracket&&isBracketed(text)){solos.push({s,e,en:'',cn:flattenCN(text,set.cnNL,''),flag:'',solo:true,tf:'solo'});return;}
+    const cands=[];
+    for(let k=lb(starts,s-maxDur);k<rows.length&&rows[k].s<e;k++){const o=Math.min(e,rows[k].e)-Math.max(s,rows[k].s);if(o>0)cands.push({k,o});}
+    if(!cands.length){
+      let bk=-1,bg=Infinity;for(let k=lb(starts,s-maxDur-3000);k<rows.length&&rows[k].s<e+3000;k++){const gap=Math.max(rows[k].s-e,s-rows[k].e);if(gap<bg){bg=gap;bk=k;}}
+      if(bk>=0&&bg<=1500){const fx=flattenCNx(text,set.cnNL,rows[bk].en);add(bk,s,0,fx.text,'near',fx.uns);}
+      return;
+    }
+    const enCtx=cands.map(x=>rows[x.k].en).join(' | ');
+    const fx=flattenCNx(text,set.cnNL,enCtx);
+    cands.forEach(x=>x.w=isMusic(rows[x.k].en)?x.o*0.3:x.o);
+    let tot=cands.reduce((a,x)=>a+x.w,0)||1;cands.forEach(x=>x.sh=x.w/tot);
+    let kept=cands.filter(x=>x.sh>=0.15||(x.o>=600&&x.sh>=0.08));
+    const mx=cands.reduce((a,x)=>x.sh>a.sh?x:a);
+    if(!kept.length)kept=[mx];
+    if(kept.length===1||mx.sh>=0.85){add(mx.k,s,0,fx.text,mx.sh<0.6?'weak':'',fx.uns);return;}
+    tot=kept.reduce((a,x)=>a+x.w,0);const targets=[];let acc=0;for(let j=0;j<kept.length-1;j++){acc+=kept[j].w/tot;targets.push(acc);}
+    const dlgC=dlgBounds(fx.text).length>0;
+    const pieces=(dlgC&&dlgSplit(fx.text,targets))||splitText(text,targets,set.cnNL,enCtx);
+    if(!pieces){const km=kept.reduce((a,x)=>x.w>a.w?x:a);add(km.k,s,0,fx.text,'weak',fx.uns);return;}
+    pieces.forEach((p,j)=>add(kept[j].k,s,j,p,'split',fx.uns,dlgC));
+  });
+  rows.forEach(r=>{r.parts.sort((a,b)=>a.t-b.t||a.j-b.j);
+    if(r.parts.some(p=>p.dp)&&!parseEnDialogue(r.en))r.parts.forEach(p=>{if(p.dp)p.text=stripLeadDash(p.text);});
+    const hints=r.parts.map(p=>p.text);r.cn=hints.join(' ');delete r.parts;
+    if(set.dlgFix)checkDialogue(r,hints);});
+  const all=rows.concat(solos);all.sort((a,b)=>a.s-b.s||(a.solo?1:0)-(b.solo?1:0));
+  if(set.cnPunct)all.forEach(r=>{r.cn=normPunct(r.cn,r.en,set.ellMode);});
+  if(set.pqFix)all.forEach(r=>fillPunct(r,set));
+  all.forEach(r=>{if(!r.nljC)return;const seen=new Set();
+    r.nlj=r.nljC.filter(j=>{const k=j.a+'|'+j.b;if(seen.has(k))return false;seen.add(k);return !!findJunction(r.cn,j);});
+    delete r.nljC;if(!r.nlj.length)delete r.nlj;});
+  return all;
+}
+
+function runAlign(){
+  const set=S.settings,en=S.en,cn=S.cn;let offs=[],info='';
+  if(cn.length&&en.length){
+    if(set.offMode==='manual'){const o=Math.round((+set.manualOff||0)*1000);offs=cn.map(()=>o);info='中文偏移（手动）'+fmtOff(o);}
+    else{const g=globalOffset(en,cn);
+      if(set.offMode==='global'){offs=cn.map(()=>g);info='检测到中文整体偏移 '+fmtOff(g);}
+      else{offs=localOffsets(en,cn,g);const mn=Math.min(...offs),mxx=Math.max(...offs);
+        info='检测到中文偏移 '+fmtOff(g)+(mxx-mn>80?`（分段范围 ${fmtOff(mn)} ~ ${fmtOff(mxx)}）`:'');}}
+  }
+  cn.forEach((c,i)=>{c.off=offs[i]||0;c.os=c.s+c.off;c.oe=c.e+c.off;c.ignored=false;});
+  S.rows=cn.length?assign(en,cn,set):en.map(c=>({s:c.s,e:c.e,en:c.text,cn:'',flag:''}));
+  S.offInfo=info;S.cur=-1;hist=[];fut=[];pendingSnap=null;S.cnRepl=[];HL.cur=null;
+  const gN=G.on&&G.auto?gReplaceRows(G.items):0;
+  renderAll();renderSources();recomputeCoverage();save();
+  const f=S.rows.filter(r=>r.flag).length;
+  toast(`已对齐 ${S.rows.length} 条，${f} 条待检查`+(gN?`；词汇库已自动替换 ${gN} 处`:''));
+}
+
+/* ================= 渲染 ================= */
+const rowsPane=$('#rowsPane'),srcList=$('#srcList');
+function estRows(t){if(!t)return 1;return t.split('\n').reduce((a,l)=>a+Math.max(1,Math.ceil(l.length/34)),0);}
+const TF_LABEL={split:'拆分',solo:'中文独有',manual:'手动标记'};
+function tfBadge(r){if(r.tf)return `<span class="badge b-tf" data-op="tf" title="时间是估算的，导出后需在 Aegisub 里校准（点击取消标记，Alt+T）">⏱需校时·${TF_LABEL[r.tf]||r.tf}</span>`;
+  if(r.solo)return '<span class="badge b-solo">独立中文</span>';return '';}
+const autoTr=r=>!!(r.en||'').trim()&&!(r.cn||'').trim()&&(S.settings.trMusic||!isMusic(r.en));
+const needTr=r=>!!r.trM||autoTr(r);
+function dlgBadge(r){
+  if(r.dlg==='auto')return '<span class="badge b-dlg" data-op="dlg" title="英文是双人对白，已自动在中文里补上“-”，请核对切分位置。确认后按 Enter 或点此标签清除">对白·已补-</span>';
+  if(r.dlg==='fail')return '<span class="badge b-dlgf" data-op="dlg" title="英文是双人对白，但中文没找到合适的切分处，请手动补“-”。补好后标记自动消失，也可点此标签清除">对白·缺-</span>';
+  return '';}
+function nlBadge(r){
+  if(!hasNl(r))return '';
+  return r.nlj.map((j,idx)=>{const f=findJunction(r.cn,j);if(!f)return '';
+    const L=r.cn.slice(Math.max(0,f.pos-2),f.pos),R=r.cn.slice(f.pos+(f.sp?1:0)).slice(0,2);
+    return `<span class="badge b-nl" data-op="nl" data-j="${idx}" title="中文原字幕这里换过行：…${esc(j.a)} ⏎ ${esc(j.b)}…&#10;自动判断为“${f.sp?'加空格':'直接连上'}”，但把握不大。&#10;点此切换 连上 / 空格；确认无误后按 Enter（或编辑本条）清除标记">⏎${esc(L)}${f.sp?'␣':'|'}${esc(R)} ${f.sp?'空格':'连上'}</span>`;}).join('');}
+function pqBadge(r){
+  const n=r.pqN?'&#10;&#10;'+esc(r.pqN).replace(/\n/g,'&#10;'):'';
+  if(r.pq==='auto')return `<span class="badge b-dlg" data-op="pq" title="英文有 ... ! ? 或引号、中文没有，已按断句位置自动补在句子中间，请核对。确认后按 Enter 或点此标签清除${n}">标点·已补</span>`;
+  if(r.pq==='fail')return `<span class="badge b-dlgf" data-op="pq" title="英文有 ... ! ? 或引号、中文没有，但找不到可靠的位置，请手动补（补好后标记自动消失）；不需要的话点此标签清除${n}">标点·缺</span>`;
+  return '';}
+function badge(r){return reviewBadge(r)+nlBadge(r)+dlgBadge(r)+pqBadge(r)+tfBadge(r)+(r.trM?'<span class="badge b-trm" data-op="tr" title="手动标记：本条还有内容没翻译（如双人对白缺一方的中文）；导出时会标“待翻译”。翻好后点此标签取消（Alt+R）">✎待翻译·手动</span>':autoTr(r)?'<span class="badge b-tr" title="英文独有，没有中文；导出时会标“待翻译”">待翻译</span>':'');}
+function reviewBadge(r){
+  if(r.flag==='split')return '<span class="badge b-split">中文已拆·待查</span>';
+  if(r.flag==='weak')return '<span class="badge b-weak">不确定</span>';
+  if(r.flag==='near')return '<span class="badge b-near">就近匹配</span>';return '';}
+function rowClass(r,i){const c=['row'];if(r.flag)c.push('f-'+r.flag);else if(hasNl(r))c.push('f-nl');if(r.solo)c.push('solo');if(r.tf)c.push('tf');if(r.dlg)c.push('dlg');if(r.dlg==='fail')c.push('dlgf');if(r.pq)c.push('pq');if(r.trM)c.push('trm');if(r.pq==='fail')c.push('pqf');if(i===S.cur)c.push('cur');
+  if(!r.cn.trim()&&r.en&&!isMusic(r.en))c.push('nocn');return c.join(' ');}
+function metaHTML(r,i){return `<div class="l1"><span class="no">#${i+1}</span><span class="tc" title="点击：视频播放本条">${fmt(r.s)}</span></div><div class="l1"><span class="no" style="visibility:hidden">#${i+1}</span><span class="tc2">${fmt(r.e)}</span></div>${badge(r)}<div class="ops"><button data-op="merge" title="与下一条合并（Alt+M）">合并↓</button><button data-op="split" title="在英文光标处拆成两条（Alt+S）">拆分</button><button data-op="del" title="删除本条">删</button><button data-op="tf" title="标记/取消“需校时”（Alt+T）">⏱</button><button data-op="tr" title="标记/取消“待翻译”（Alt+R），如双人对白缺一方的中文">✎译</button></div>`;}
+function rowHTML(r,i){
+  const ra=FS?'rows="1"':'';
+  return `<div class="${rowClass(r,i)}" data-i="${i}"><div class="meta">${metaHTML(r,i)}</div>`+
+  `<div class="tw"><textarea class="en" spellcheck="false" ${FS?ra:'rows="'+estRows(r.en)+'"'} placeholder="（无英文）">${esc(r.en)}</textarea><div class="hlm hle"></div></div>`+
+  `<div class="tw"><textarea class="cn" spellcheck="false" ${FS?ra:'rows="'+estRows(r.cn)+'"'} placeholder="（无中文）">${esc(r.cn)}</textarea><div class="hlm hlc"></div></div>`+
+  `</div>`;
+}
+function renderAll(){
+  if(!S.rows.length){return;}
+  rowsPane.innerHTML=S.rows.map(rowHTML).join('');HL.any=true;hlAll();
+  updateStat();updateButtons();
+}
+const rowEl=i=>rowsPane.children[i];
+function updateRowEl(i){const el=rowEl(i);if(!el)return;const r=S.rows[i];
+  el.className=rowClass(r,i);el.querySelector('.meta').innerHTML=metaHTML(r,i);
+  const en=el.querySelector('.en'),cn=el.querySelector('.cn');
+  if(en.value!==r.en)en.value=r.en;if(cn.value!==r.cn)cn.value=r.cn;
+  if(!FS){en.rows=estRows(r.en);cn.rows=estRows(r.cn);}hlRow(i);}
+function renderSources(){
+  const order=S.cn.map((c,i)=>i).sort((a,b)=>S.cn[a].os-S.cn[b].os);S.srcOrder=order;
+  srcList.innerHTML=order.map(ci=>{const c=S.cn[ci];return `<div class="src" data-ci="${ci}"><span class="tc" title="定位到这里">${fmt(c.os).slice(0,8)}</span><span class="tx">${esc(c.text).replace(/\n/g,'<br>')}</span>`+
+  `<span class="sops"><button data-sop="append" title="追加到当前选中行">＋当前行</button><button data-sop="solo" title="按中文自己的时间插入为独立条目">插入独立条</button><button data-sop="ignore">忽略/取消</button></span></div>`;}).join('');
+  applyUnusedFilter();
+}
+let covT=null;
+function recomputeCoverage(){
+  clearTimeout(covT);covT=null;
+  const rows=S.rows,starts=rows.map(r=>r.s),nr=rows.map(r=>norm(r.cn));let unused=0;
+  const W=20000;
+  S.cn.forEach((c,ci)=>{
+    let st='used';
+    if(c.ignored)st='ignored';
+    else{const n=norm(c.text),n2=S.cnRepl&&S.cnRepl.length?norm(applyRepl(c.text)):n;
+      if(n){let cat='';for(let k=lb(starts,c.os-W-60000);k<rows.length&&rows[k].s<=c.oe+W;k++){if(rows[k].e>=c.os-W)cat+=nr[k];}
+        if(!cat.includes(n)&&!cat.includes(n2))st='unused';}}
+    c.st=st;if(st==='unused')unused++;
+  });
+  S.unused=unused;
+  for(const el of srcList.children){const c=S.cn[+el.dataset.ci];el.classList.toggle('used',c.st==='used');el.classList.toggle('unused',c.st==='unused');el.classList.toggle('ignored',c.st==='ignored');}
+  applyUnusedFilter();updateStat();gUpdateCounts();if(G.on&&G.cands.length)gCandSoon();
+}
+function scheduleCoverage(){clearTimeout(covT);covT=setTimeout(recomputeCoverage,400);}
+function applyUnusedFilter(){const only=$('#onlyUnused').checked;for(const el of srcList.children)el.style.display=(only&&!el.classList.contains('unused'))?'none':'';}
+function updateStat(){
+  if(!S.rows.length&&!S.en.length){return;}
+  const rows=S.rows,withCn=rows.filter(r=>r.cn.trim()).length,flag=rows.filter(r=>r.flag||hasNl(r)).length;
+  $('#stat').innerHTML=`共 <b>${rows.length}</b> 条 · 有中文 <b>${withCn}</b> · 待检查 <b class="${flag?'w':''}">${flag}</b> · 需校时 <b style="color:var(--tf)">${rows.filter(r=>r.tf).length}</b> · 待翻译 <b style="color:#127a7a">${rows.filter(needTr).length}</b> · 对白待审 <b style="color:#3346b8">${rows.filter(r=>r.dlg).length}</b> · 标点待审 <b style="color:#3346b8">${rows.filter(r=>r.pq).length}</b>`+(S.cn.length?` · 未用中文 <b class="${S.unused?'w':''}">${S.unused||0}</b> / ${S.cn.length}`:'');
+  $('#offinfo').textContent=S.offInfo||'';
+}
+function updateButtons(){const has=S.rows.length>0;$('#btnTidy').disabled=!has;$('#btnExport').disabled=!has;$('#btnCopy').disabled=!has;$('#btnTrOut').disabled=!has;$('#btnSaveProj').disabled=!has;const ba=$('#btnAlign');ba.disabled=!S.en.length;ba.textContent=has?'重新对齐…':'自动对齐';ba.title=has?'从头重新对齐，会覆盖当前全部编辑（会先确认，之后可恢复）':'按时间把中文分配到英文上';}
+function updateFileLabels(){
+  const set=(id,name,extra)=>{const el=$(id);el.classList.toggle('loaded',!!name);if(name)el.querySelector('.nm').textContent=name+(extra?'  '+extra:'');};
+  set('#fileEn',S.enName,S.en.length?`(${S.en.length}条)`:'');set('#fileCn',S.cnName,S.cn.length?`(${S.cn.length}条)`:'');
+}
+
+/* ================= 当前行 / 同步 ================= */
+function setCurrent(i){
+  if(i===S.cur)return;const old=rowEl(S.cur);if(old)old.classList.remove('cur');
+  S.cur=i;const el=rowEl(i);if(el)el.classList.add('cur');save();
+  syncSources();
+  if(vid.src&&$('#followVid').checked&&vid.paused&&S.rows[i]){vid.currentTime=Math.max(0,S.rows[i].s/1000-0.2);}
+}
+function syncSources(){
+  const r=S.rows[S.cur];if(!r||!S.srcOrder)return;
+  let first=null;
+  for(const el of srcList.children){const c=S.cn[+el.dataset.ci];const hl=c.oe>=r.s-300&&c.os<=r.e+300;el.classList.toggle('hl',hl);
+    if(!first&&c.oe>=r.s-4000&&el.style.display!=='none')first=el;}
+  if(first)srcList.scrollTop=first.offsetTop-srcList.offsetTop-60;
+}
+function focusRow(i,where='cn',caret='end',center=false){
+  const el=rowEl(i);if(!el)return;const ta=el.querySelector('.'+where);
+  ta.focus({preventScroll:true});const p=caret==='end'?ta.value.length:caret;try{ta.setSelectionRange(p,p);}catch(e){}
+  el.scrollIntoView({block:center?'center':'nearest'});setCurrent(i);
+}
+function rowIndexOf(node){const r=node&&node.closest&&node.closest('.row');return r?+r.dataset.i:-1;}
+function nearestRow(t){let best=-1,bd=Infinity;S.rows.forEach((r,i)=>{const d=t<r.s?r.s-t:(t>r.e?t-r.e:0);if(d<bd){bd=d;best=i;}});return best;}
+
+/* ================= 撤销 ================= */
+const snap=()=>JSON.stringify(S.rows);
+function pushHist(s){hist.push(s);if(hist.length>300)hist.shift();fut=[];}
+function beginOp(){pendingSnap=null;pushHist(snap());}
+function endOp(){pendingSnap=snap();save();scheduleCoverage();updateStat();}
+function restore(s){S.rows=JSON.parse(s);const c=S.cur;S.cur=-1;renderAll();if(c>=0&&c<S.rows.length)focusRow(Math.min(c,S.rows.length-1));pendingSnap=snap();recomputeCoverage();save();}
+function undo(){if(!hist.length){toast('没有可撤销的操作');return;}fut.push(snap());restore(hist.pop());toast('已撤销');}
+function redo(){if(!fut.length){toast('没有可重做的操作');return;}hist.push(snap());restore(fut.pop());toast('已重做');}
+
+/* ================= 编辑操作 ================= */
+const joinCN=(a,b)=>{a=a.trim();b=b.trim();return a&&b?a+' '+b:(a||b);};
+function pushDown(i,pos){
+  if(i>=S.rows.length-1)return toast('已经是最后一条');
+  const r=S.rows[i],tail=r.cn.slice(pos).trim();if(!tail)return toast('光标后没有文字');
+  beginOp();r.cn=stripTail(r.cn.slice(0,pos).trim());S.rows[i+1].cn=joinCN(tail,S.rows[i+1].cn);r.flag='';
+  updateRowEl(i);updateRowEl(i+1);const ta=rowEl(i).querySelector('.cn');ta.setSelectionRange(ta.value.length,ta.value.length);endOp();
+}
+function pushUp(i,pos){
+  if(i<=0)return toast('已经是第一条');
+  const r=S.rows[i],head=r.cn.slice(0,pos).trim();if(!head)return toast('光标前没有文字');
+  beginOp();r.cn=r.cn.slice(pos).trim();S.rows[i-1].cn=joinCN(S.rows[i-1].cn,stripTail(head));r.flag='';
+  updateRowEl(i);updateRowEl(i-1);const ta=rowEl(i).querySelector('.cn');ta.setSelectionRange(0,0);endOp();
+}
+function mergeNext(i){
+  if(i<0||i>=S.rows.length-1)return toast('没有下一条可合并');
+  beginOp();const a=S.rows[i],b=S.rows[i+1];
+  a.e=Math.max(a.e,b.e);a.en=[a.en,b.en].filter(x=>x.trim()).join('\n');a.cn=joinCN(a.cn,b.cn);
+  a.flag=FLAG_RANK[b.flag]>FLAG_RANK[a.flag]?b.flag:a.flag;a.tf=a.tf||b.tf||'';if(b.trM)a.trM=true;a.dlg=a.dlg||b.dlg||'';if(b.pq){a.pq=a.pq==='fail'||b.pq==='fail'?'fail':'auto';a.pqN=[a.pqN,b.pqN].filter(Boolean).join('\n');}if(hasNl(b))a.nlj=(a.nlj||[]).concat(b.nlj);if(a.solo&&!b.solo)delete a.solo;
+  S.rows.splice(i+1,1);renderAll();focusRow(i);endOp();toast('已合并');
+}
+const lastEnCaret={i:-1,p:0};
+function splitRow(i){
+  if(i<0)return;const r=S.rows[i];let p=lastEnCaret.i===i?lastEnCaret.p:-1;
+  const en=r.en;
+  if(p<=0||p>=en.length){const nl=en.indexOf('\n');p=nl>0?nl:-1;}
+  if(p<=0||p>=en.length){if(en.length<2)return toast('英文太短，无法拆分');p=en.lastIndexOf(' ',en.length>>1);if(p<=0)p=en.length>>1;}
+  const A=en.slice(0,p).trim(),B=en.slice(p).trim();
+  if(!A||!B)return toast('请先在英文框里把光标放到要拆开的位置');
+  beginOp();
+  const frac=tw(A)/Math.max(1,tw(A)+tw(B));const t=Math.round(r.s+(r.e-r.s)*frac);
+  const nr={s:t,e:r.e,en:B,cn:'',flag:'',tf:'split'};r.e=Math.max(r.s,t-1);r.en=A;r.tf=r.tf||'split';
+  S.rows.splice(i+1,0,nr);renderAll();focusRow(i,'cn','end');endOp();
+  toast('已拆分（时间按字数估算，已标“需校时”）。中文仍在上一条，可用 Alt+↓ 把后半句推下去',4500);
+}
+function delRow(i){if(i<0)return;beginOp();S.rows.splice(i,1);renderAll();focusRow(Math.min(i,S.rows.length-1));endOp();toast('已删除（可撤销）');}
+function toggleTf(i){if(i<0||!S.rows[i])return;beginOp();const r=S.rows[i];r.tf=r.tf?'':'manual';updateRowEl(i);endOp();toast(r.tf?'已标记为需校时':'已取消需校时标记');}
+function nextTf(){const n=S.rows.length;if(!n)return;for(let d=1;d<=n;d++){const k=(S.cur+d+n)%n;if(S.rows[k].tf){focusRow(k,'cn','end',true);return;}}toast('没有需校时的条目');}
+function toggleNL(i,jx){const r=S.rows[i];if(!r||!hasNl(r))return;const j=r.nlj[jx];const f=j&&findJunction(r.cn,j);if(!f)return;
+  beginOp();r.cn=f.sp?r.cn.slice(0,f.pos)+r.cn.slice(f.pos+1):r.cn.slice(0,f.pos)+' '+r.cn.slice(f.pos);updateRowEl(i);endOp();
+  toast((f.sp?'已改为直接连上':'已改为加空格')+'，确认无误后按 Enter 清除标记');}
+function nextDlg(){const n=S.rows.length;if(!n)return;for(let d=1;d<=n;d++){const k=(S.cur+d+n)%n;if(S.rows[k].dlg||S.rows[k].pq){focusRow(k,'cn','end',true);return;}}toast('没有对白 / 标点待审的条目');}
+function confirmPq(i){if(i<0||!S.rows[i]||!S.rows[i].pq)return;beginOp();const r=S.rows[i];r.pq='';delete r.pqN;r.pqOk=true;updateRowEl(i);endOp();toast('已确认标点');}
+function confirmDlg(i){if(i<0||!S.rows[i]||!S.rows[i].dlg)return;beginOp();const r=S.rows[i];r.dlg='';r.dlgOk=true;updateRowEl(i);endOp();toast('已确认对白');}
+function tidyAll(){
+  readSettings();const set=S.settings;if(!S.rows.length)return;
+  beginOp();const d0=S.rows.filter(r=>r.dlg).length;
+  const befores=S.rows.map(r=>r.cn||'');const nl=set.cnNL==='smart'?repairNL():0;
+  let nc=0;S.rows.forEach((r,i)=>{const before=befores[i];
+    if(set.dlgFix)checkDialogue(r,null);
+    if(set.cnPunct)r.cn=normPunct(r.cn||'',r.en,set.ellMode);
+    if(set.pqFix)fillPunct(r,set);
+    if(r.cn!==before)nc++;});
+  const c=S.cur;S.cur=-1;renderAll();if(c>=0&&rowEl(c)){S.cur=c;rowEl(c).classList.add('cur');}
+  endOp();const d1=S.rows.filter(r=>r.dlg).length,p1=S.rows.filter(r=>r.pq).length;
+  toast(`已整理：改动 ${nc} 条中文`+(nl?`（其中按新规则调整中文换行处 ${nl} 处）`:'')+(S.rows.filter(hasNl).length?`；换行处待查 ${S.rows.filter(hasNl).length} 条`:'')+(set.dlgFix?`；对白待审 ${d1} 条`+(d1>d0?`（新增 ${d1-d0}）`:''):'')+(set.pqFix?`；标点待审 ${p1} 条`:'')+'（可撤销）',4500);
+}
+function toggleTr(i){if(i<0||!S.rows[i])return;beginOp();const r=S.rows[i];if(r.trM)delete r.trM;else r.trM=true;updateRowEl(i);endOp();toast(r.trM?'已标记为待翻译（翻好后再按 Alt+R 或点标签取消）':'已取消待翻译标记');}
+function nextTr(){const n=S.rows.length;if(!n)return;for(let d=1;d<=n;d++){const k=(S.cur+d+n)%n;if(needTr(S.rows[k])){focusRow(k,'cn','end',true);return;}}toast('没有待翻译的条目');}
+function nextFlag(){
+  const n=S.rows.length;if(!n)return;for(let d=1;d<=n;d++){const k=(S.cur+d+n)%n;if(S.rows[k].flag||hasNl(S.rows[k])){focusRow(k,'cn','end',true);return;}}
+  toast('没有待检查的条目了 🎉');
+}
+function nextUnused(){
+  if(!S.cn.length)return;const t=S.cur>=0?S.rows[S.cur].s:-Infinity;
+  const list=S.srcOrder.filter(ci=>S.cn[ci].st==='unused');if(!list.length)return toast('中文已全部用上（或已忽略）🎉');
+  let ci=list.find(ci=>S.cn[ci].os>t+1)??list[0];const c=S.cn[ci];
+  const k=nearestRow(c.os);focusRow(k,'cn','end',true);
+  const el=srcList.querySelector(`.src[data-ci="${ci}"]`);if(el){srcList.scrollTop=el.offsetTop-srcList.offsetTop-120;el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');}
+}
+function srcAction(ci,op){
+  const c=S.cn[ci];
+  if(op==='ignore'){c.ignored=!c.ignored;recomputeCoverage();save();return;}
+  const cnTxt=en=>{const t=flattenCN(c.text,S.settings.cnNL,en);return applyRepl(S.settings.cnPunct?normPunct(t,en,S.settings.ellMode):t);};
+  if(op==='append'){let i=S.cur;if(i<0)i=nearestRow(c.os);beginOp();S.rows[i].cn=joinCN(S.rows[i].cn,cnTxt(S.rows[i].en));updateRowEl(i);focusRow(i);endOp();recomputeCoverage();toast(`已追加到 #${i+1}`);return;}
+  if(op==='solo'){beginOp();const r={s:c.os,e:c.oe,en:'',cn:cnTxt(''),flag:'',solo:true,tf:'solo'};
+    let k=S.rows.findIndex(x=>x.s>r.s);if(k<0)k=S.rows.length;S.rows.splice(k,0,r);renderAll();focusRow(k,'cn','end',true);endOp();recomputeCoverage();toast('已插入为独立条目');}
+}
+
+/* ================= 事件 ================= */
+rowsPane.addEventListener('focusin',e=>{const i=rowIndexOf(e.target);if(i>=0){setCurrent(i);pendingSnap=snap();}});
+rowsPane.addEventListener('input',e=>{
+  const t=e.target,i=rowIndexOf(t);if(i<0)return;
+  if(pendingSnap){pushHist(pendingSnap);pendingSnap=null;}
+  const r=S.rows[i];
+  if(t.classList.contains('cn')){const was=needTr(r);r.cn=t.value;let dch=false;if(r.dlg==='fail'&&!dlgPending(r)){r.dlg='';dch=true;}if(r.pq==='fail'&&!pqPending(r)){r.pq='';delete r.pqN;dch=true;}if(hasNl(r)){delete r.nlj;r.nlOk=true;dch=true;}
+    if(r.flag||was!==needTr(r)||dch){r.flag='';const el=rowEl(i);el.className=rowClass(r,i);el.querySelector('.meta').innerHTML=metaHTML(r,i);}}
+  else if(t.classList.contains('en'))r.en=t.value;
+  if(!FS)t.rows=estRows(t.value);
+  if(HL.cur&&HL.cur.i===i)HL.cur=null;hlRow(i);
+  save();scheduleCoverage();
+});
+const rememberEnCaret=e=>{const t=e.target;if(t.tagName==='TEXTAREA'&&rowIndexOf(t)>=0)lastSel={i:rowIndexOf(t),f:t.classList.contains('en')?'en':'cn',s:t.selectionStart,e:t.selectionEnd};if(t.classList&&t.classList.contains('en')){lastEnCaret.i=rowIndexOf(t);lastEnCaret.p=t.selectionStart;}};
+['keyup','mouseup','select'].forEach(ev=>rowsPane.addEventListener(ev,rememberEnCaret));
+rowsPane.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-op]');const i=rowIndexOf(e.target);
+  const tfb=e.target.closest('[data-op="tf"]');if(tfb){toggleTf(i);return;}
+  if(e.target.closest('[data-op="dlg"]')){confirmDlg(i);return;}
+  if(e.target.closest('[data-op="pq"]')){confirmPq(i);return;}
+  if(e.target.closest('[data-op="tr"]')){toggleTr(i);return;}
+  const nlb=e.target.closest('[data-op="nl"]');if(nlb){toggleNL(i,+nlb.dataset.j);return;}
+  if(b){const op=b.dataset.op;if(op==='merge')mergeNext(i);else if(op==='split')splitRow(i);else if(op==='del')delRow(i);return;}
+  if(e.target.classList.contains('tc')){setCurrent(i);playRow(i);}
+});
+srcList.addEventListener('click',e=>{
+  const it=e.target.closest('.src');if(!it)return;const ci=+it.dataset.ci;
+  const b=e.target.closest('button[data-sop]');if(b){srcAction(ci,b.dataset.sop);return;}
+  if(e.target.classList.contains('tc')){const k=nearestRow(S.cn[ci].os);if(k>=0)focusRow(k,'cn','end',true);if(vid.src)vid.currentTime=S.cn[ci].os/1000;}
+});
+$('#onlyUnused').addEventListener('change',applyUnusedFilter);
+
+document.addEventListener('keydown',e=>{
+  if(e.isComposing||e.keyCode===229)return;
+  const t=e.target,inCN=t.classList&&t.classList.contains('cn'),inEN=t.classList&&t.classList.contains('en');
+  const i=(inCN||inEN)?rowIndexOf(t):S.cur;const mod=e.ctrlKey||e.metaKey;
+  if(mod&&!e.altKey&&e.code==='KeyZ'){e.preventDefault();e.shiftKey?redo():undo();return;}
+  if(mod&&!e.altKey&&e.code==='KeyY'){e.preventDefault();redo();return;}
+  if(mod&&!e.altKey&&e.code==='KeyS'){e.preventDefault();if(S.rows.length)exportSRT();return;}
+  if(mod&&!e.altKey&&(e.code==='KeyF'||e.code==='KeyH')){e.preventDefault();frFocus(e.code==='KeyH');return;}
+  if(e.key==='F3'){e.preventDefault();frGo(e.shiftKey?-1:1);return;}
+  if(t.id==='frFind'&&e.key==='Enter'&&!e.isComposing){e.preventDefault();frGo(e.shiftKey?-1:1);return;}
+  if(t.id==='frRep'&&e.key==='Enter'&&!e.isComposing){e.preventDefault();frReplaceOne();return;}
+  if((t.id==='gEn'||t.id==='gFrom'||t.id==='gTo')&&e.key==='Enter'){e.preventDefault();gAddManual();return;}
+  if(t.classList&&t.classList.contains('gt')&&e.key==='Enter'){e.preventDefault();const k=+t.closest('.gi').dataset.k;gReplaceUI([G.items[k]]);return;}
+  if(e.altKey&&!mod){
+    let done=true;
+    switch(e.code){
+      case 'ArrowDown':if(inCN)pushDown(i,t.selectionStart);else done=false;break;
+      case 'ArrowUp':if(inCN)pushUp(i,t.selectionEnd);else done=false;break;
+      case 'KeyM':mergeNext(i);break;
+      case 'KeyS':if(inEN){lastEnCaret.i=i;lastEnCaret.p=t.selectionStart;}splitRow(i);break;
+      case 'KeyN':nextFlag();break;
+      case 'KeyU':nextUnused();break;
+      case 'KeyP':playRow(i);break;
+      case 'KeyT':toggleTf(i);break;
+      case 'KeyR':toggleTr(i);break;
+      case 'KeyJ':nextTf();break;
+      case 'KeyL':nextTr();break;
+      case 'KeyK':nextDlg();break;
+      case 'KeyG':gAddSel();break;
+      default:done=false;
+    }
+    if(done)e.preventDefault();return;
+  }
+  if((inCN||inEN)&&mod&&(e.key==='ArrowDown'||e.key==='ArrowUp')){e.preventDefault();const k=i+(e.key==='ArrowDown'?1:-1);if(k>=0&&k<S.rows.length)focusRow(k,inCN?'cn':'en');return;}
+  if(inCN&&e.key==='Enter'&&!e.shiftKey&&!mod){
+    e.preventDefault();const r=S.rows[i];if(r.flag||r.dlg||r.pq||hasNl(r)){r.flag='';if(r.dlg){r.dlg='';r.dlgOk=true;}if(r.pq){r.pq='';delete r.pqN;r.pqOk=true;}if(hasNl(r)){delete r.nlj;r.nlOk=true;}updateRowEl(i);updateStat();save();}
+    if(i+1<S.rows.length)focusRow(i+1);return;
+  }
+  if(e.key==='Escape')$('#help').style.display='none';
+});
+
+/* ================= 文件载入 ================= */
+async function readFile(f){return decodeBuffer(await f.arrayBuffer());}
+// 载入了不同文件名的字幕：新的一集，还是同一集换字幕
+async function askNewEpisode(kind,newName){
+  const oldName=kind==='en'?S.enName:S.cnName,other=kind==='en'?'中文':'英文';
+  if(!S.rows.length||!oldName||oldName===newName)return false;
+  return confirmBox(`<h2 style="margin:0 0 8px;font-size:17px">开始新的一集？</h2>
+    <p>当前项目：<b>${esc(S.enName)}</b> + <b>${esc(S.cnName)}</b>（${S.rows.length} 条，已自动缓存）</p>
+    <p>新载入的${kind==='en'?'英文':'中文'}：<b>${esc(newName)}</b></p>
+    <p class="stat">• 开始新的一集：清空${other}和全部条目，再载入这一集的${other}字幕即可对齐；上一集的进度留在“缓存项目”里。<br>• 同一集换字幕：保留${other}，直接重新对齐（之后可恢复对齐前的进度）。</p>`,'开始新的一集','同一集，换字幕');
+}
+function startFresh(keep){
+  if(keep==='en'){S.cn=[];S.cnName='';}else{S.en=[];S.enName='';}
+  S.rows=[];S.cur=-1;S.offInfo='';hist=[];fut=[];pendingSnap=null;clearVideo();
+  renderAll();renderSources();recomputeCoverage();updateStat();
+}
+$('#inEn').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';
+  await flushSave();
+  const en=parseSRT(await readFile(f)).map(c=>({s:c.s,e:c.e,text:cleanEN(c.text)}));
+  if(!en.length)return toast('没有解析到字幕，请确认是 SRT 文件');
+  const fresh=await askNewEpisode('en',f.name);
+  const bk=!fresh&&S.rows.length?JSON.stringify(projectData()):null;
+  S.en=en;S.enName=f.name;if(fresh)startFresh('en');afterLoad(bk);});
+$('#inCn').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';
+  await flushSave();
+  const cn=parseSRT(await readFile(f)).map(c=>({s:c.s,e:c.e,text:cleanCN(c.text)})).filter(c=>c.text);
+  if(!cn.length)return toast('没有解析到字幕，请确认是 SRT 文件');
+  const fresh=await askNewEpisode('cn',f.name);
+  const bk=!fresh&&S.rows.length?JSON.stringify(projectData()):null;
+  S.cn=cn;S.cnName=f.name;if(fresh)startFresh('cn');afterLoad(bk);});
+function afterLoad(bk){updateFileLabels();updateButtons();$('#restore').style.display='none';
+  if(S.en.length&&S.cn.length){setTimeout(()=>{runAlign();if(bk)offerRestore(bk,'已用新载入的字幕重新对齐');},30);}
+  else{toast(S.en.length?'英文已载入，再载入中文字幕即可自动对齐':'中文已载入，再载入英文字幕');}}
+
+// 重新对齐前先确认，对齐后可恢复
+let alignBackup=null;
+function offerRestore(bk,why){
+  alignBackup=bk;const box=$('#restore');box.style.display='block';
+  box.innerHTML=`${esc(why)}，之前的编辑进度已被覆盖。 <button id="rbYes" class="primary">恢复对齐前的进度</button> <button id="rbNo">不用了</button> <span class="stat">（备份只保留到关闭本页面为止）</span>`;
+  $('#rbYes').onclick=()=>{const d=JSON.parse(alignBackup);alignBackup=null;loadProject(d);toast('已恢复对齐前的进度');};
+  $('#rbNo').onclick=()=>{alignBackup=null;box.style.display='none';};
+}
+function confirmBox(html,okText,cancelText){return new Promise(res=>{
+  const w=document.createElement('div');w.className='cfm';
+  w.innerHTML=`<div class="card">${html}<p style="text-align:right;margin:16px 0 0"><button class="c0">${cancelText}</button> <button class="c1 primary">${okText}</button></p></div>`;
+  document.body.appendChild(w);
+  const kd=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(false);}};
+  const done=v=>{w.remove();document.removeEventListener('keydown',kd,true);res(v);};
+  document.addEventListener('keydown',kd,true);
+  w.querySelector('.c0').onclick=()=>done(false);w.querySelector('.c1').onclick=()=>done(true);w.addEventListener('click',e=>{if(e.target===w)done(false);});
+  w.querySelector('.c0').focus();});}
+$('#btnAlign').addEventListener('click',async()=>{
+  readSettings();
+  if(!S.rows.length){runAlign();return;}
+  const withCn=S.rows.filter(r=>(r.cn||'').trim()).length;
+  const ok=await confirmBox(`<h2 style="margin:0 0 8px;font-size:17px">重新对齐会覆盖当前进度</h2>`+
+    `<p>当前项目共 <b>${S.rows.length}</b> 条（有中文 ${withCn} 条）。重新对齐会按现在的设置<b>从头</b>把中文分配到英文上，你做过的所有编辑——手动修改、拆分 / 合并、确认过的条目、需校时 / 待翻译等标记——都会被替换掉。</p>`+
+    `<p class="stat">只是想按新规则整理中文标点、补 ... / 引号、对白“-”的话，请用“整理中文”，它不会动你的编辑。<br>万一点错，对齐后可以点“恢复对齐前的进度”撤回。</p>`,'重新对齐（覆盖进度）','取消');
+  if(!ok)return;
+  const bk=JSON.stringify(projectData());runAlign();offerRestore(bk,'已重新对齐');
+});
+
+/* ================= 导出 ================= */
+function oneLineEN(en){return en.split('\n').map(s=>s.trim()).filter(Boolean).join(' ');}
+// 中文对白“-”后空一格
+const CN_DLG_PREV=/[?!。？！…⋯.~～"”’'）)」』】\]]/;
+function spaceCnDash(t){
+  return t.split('\n').map(line=>{line=line.trim();const startDash=/^[-–](?![-–])/.test(line);let out='';
+    for(let i=0;i<line.length;i++){const ch=line[i];
+      if((ch==='-'||ch==='–')&&line[i-1]!=='-'&&line[i-1]!=='–'&&line[i+1]!=='-'&&line[i+1]!=='–'){
+        let j=i+1;while(j<line.length&&/\s/.test(line[j]))j++;
+        const prev=out.replace(/\s+$/,'').slice(-1),hadSp=/\s$/.test(out),next=line[j]||'';
+        const isDlg=next&&!/\d/.test(next)&&(i===0||hadSp||CN_DLG_PREV.test(prev)||(startDash&&CJK.test(prev)&&CJK.test(next)));
+        if(isDlg){out=out.replace(/\s+$/,'');out+=(out?' ':'')+'- ';i=j-1;continue;}
+      }
+      out+=ch;}
+    return out;}).join('\n');
+}
+// 英文对白“-”后空一格
+function spaceEnDash(t){
+  return t.split('\n').map(l=>l.trim()
+    .replace(/^((?:<[^>]+>|\{[^}]*\})*)-(?=[A-Za-z"'¿¡♪<])/,'$1- ')
+    .replace(/(?<=[.?!,"'…♪\]])\s*-\s*(?=[A-Za-z"'¿¡♪])|\s+-(?=[A-Za-z"'¿¡♪])/g,' - ')).join('\n');
+}
+// 导出时中英文各自压成一行
+const oneLineCN=(cn,en)=>spaceCnDash(flattenCN(cn.split('\n').map(s=>s.trim()).filter(Boolean).join('\n'),'smart',en)).replace(/\s*\n\s*/g,' ');
+const markOf=r=>[r.tf?'需校时-'+(TF_LABEL[r.tf]||r.tf):'',needTr(r)?'待翻译':'',r.dlg?'对白待审':'',r.pq?'标点待审':''].filter(Boolean).join(' ');
+const subT=(tpl,x)=>(tpl||'{text}').split('{text}').join(x);
+function buildSRT(){
+  const set=S.settings;let n=0;const out=[];const NL=set.srtNL==='N'?'\\N':'\r\n';
+  for(const r of S.rows){let cn=(r.cn||'').trim(),en=(r.en||'').trim();if(en)en=spaceEnDash(en);if(set.oneLine){if(en)en=oneLineEN(en);if(cn)cn=oneLineCN(cn,en);}else if(cn)cn=spaceCnDash(cn);
+    if(cn)cn=subT(set.cnTpl,cn);if(en)en=subT(set.enTpl,en);
+    let body=(set.order==='cn'?[cn,en]:[en,cn]).filter(Boolean).join('\n');if(!body)continue;
+    body=body.split('\n').join(NL);
+    const mk=markOf(r);if(set.srtMark&&mk)body='{'+mk+'}'+body;
+    out.push(`${++n}\r\n${fmt(r.s)} --> ${fmt(r.e)}\r\n${body}\r\n`);}
+  return out.join('\r\n');
+}
+function assTime(ms){const cs=Math.max(0,Math.round(ms/10));const h=Math.floor(cs/360000),m=Math.floor(cs/6000)%60,s2=Math.floor(cs/100)%60,c=cs%100;
+  return h+':'+String(m).padStart(2,'0')+':'+String(s2).padStart(2,'0')+'.'+String(c).padStart(2,'0');}
+function htmlToAss(t){return t.replace(/<\s*i\s*>/gi,'{\\i1}').replace(/<\s*\/\s*i\s*>/gi,'{\\i0}').replace(/<\s*b\s*>/gi,'{\\b1}').replace(/<\s*\/\s*b\s*>/gi,'{\\b0}')
+  .replace(/<\s*u\s*>/gi,'{\\u1}').replace(/<\s*\/\s*u\s*>/gi,'{\\u0}').replace(/<[^>]+>/g,'');}
+const assNL=t=>t.split('\n').map(s=>s.trim()).filter(Boolean).join('\\N');
+const assName=s=>String(s).replace(/[,\r\n]/g,' ');
+/* ---- ASS 模板（存在本浏览器里） ---- */
+const AKEY='srt-bilingual-ass-tpl-v1';
+const AS_FMT='Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding';
+const EV_FMT='Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text';
+const AS_INFO=['[Script Info]','; Generated by 双语字幕合并编辑器','; 说话人(Name)栏：“需校时-…”= 时间是估算的，需要校准；“待翻译”= 只有英文，没有中文',
+  'Title: {name}','ScriptType: v4.00+','WrapStyle: 0','ScaledBorderAndShadow: yes','YCbCr Matrix: TV.709','PlayResX: 1920','PlayResY: 1080',''];
+const AT_PRESETS={
+  dual:{label:'双样式：中文 Default + 英文 EN（默认）',tag:'{\\rEN}',head:AS_INFO.concat(['[V4+ Styles]',AS_FMT,
+    'Style: Default,Microsoft YaHei,66,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,2.5,1,2,30,30,36,1',
+    'Style: EN,Arial,44,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,2,1,2,30,30,36,1','','[Events]',EV_FMT]).join('\n')},
+  inline:{label:'单样式：中文 Default，英文只换字体字号',tag:'{\\fnArial\\fs44}',head:AS_INFO.concat(['[V4+ Styles]',AS_FMT,
+    'Style: Default,Microsoft YaHei,66,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,2.5,1,2,30,30,36,1','','[Events]',EV_FMT]).join('\n')}};
+const AT={head:AT_PRESETS.dual.head,enTag:AT_PRESETS.dual.tag};
+(function(){try{const d=JSON.parse(localStorage.getItem(AKEY)||'null');if(d&&typeof d.head==='string'&&d.head.trim()){AT.head=d.head;AT.enTag=typeof d.enTag==='string'?d.enTag:'';}}catch(e){}})();
+function atSave(){try{localStorage.setItem(AKEY,JSON.stringify(AT));}catch(e){}}
+// 整理模板文件头，返回样式表
+function atParse(text){
+  const L=String(text||'').replace(/^﻿/,'').replace(/\r/g,'').split('\n');const out=[];let ev=-1,fmt=false,inEv=false;
+  for(const l of L){const t=l.trim();
+    if(/^\[.*\]$/.test(t))inEv=/^\[events\]$/i.test(t);
+    if(inEv&&/^(dialogue|comment)\s*:/i.test(t))continue;
+    if(/^\[events\]$/i.test(t))ev=out.length;
+    if(inEv&&/^format\s*:/i.test(t))fmt=true;
+    out.push(l.replace(/\s+$/,''));}
+  while(out.length&&!out[out.length-1].trim())out.pop();
+  if(ev<0)out.push('','[Events]',EV_FMT);else if(!fmt)out.push(EV_FMT);
+  const styles=out.map(l=>/^\s*style\s*:\s*(.*)$/i.exec(l)).filter(Boolean).map(m=>{const f=m[1].split(',');return {name:f[0].trim(),font:(f[1]||'').trim(),size:(f[2]||'').trim()};});
+  return {lines:out,style:styles.length?styles[0].name:'Default',styles};
+}
+// 英文标签 {\r样式名} 对应的样式名
+function atTagStyle(tag,P){const m=/^\{\\r([^\\}]+)\}$/.exec(tag||'');if(!m)return '';const n=m[1].trim();return P.styles.some(x=>x.name===n)?n:'';}
+// 从 .ass 字幕行里猜英文标签
+function atGuessTag(text){const m=/^\s*dialogue\s*:.*?\\N(\{\\[^}]*\})/im.exec(String(text||''));return m?m[1]:'';}
+// 返回 [样式, 正文]
+function atLine(cn,en,order,tag,P){
+  if(cn&&en)return [P.style,order==='cn'?cn+'\\N'+tag+en:tag+en+'\\N'+(tag?'{\\r}':'')+cn];
+  if(cn)return [P.style,cn];
+  return [P.style,en];
+}
+function buildASS(){
+  const set=S.settings,P=atParse(AT.head),tag=AT.enTag||'',ev=[],nm=assName(baseName());
+  for(const r of S.rows){let cn=(r.cn||'').trim(),en=(r.en||'').trim();if(en)en=spaceEnDash(en);if(set.oneLine){if(en)en=oneLineEN(en);if(cn)cn=oneLineCN(cn,en);}else if(cn)cn=spaceCnDash(cn);
+    if(!cn&&!en)continue;
+    if(cn)cn=assNL(subT(set.cnTpl,cn));if(en)en=assNL(htmlToAss(subT(set.enTpl,en)));
+    const [st,text]=atLine(cn,en,set.order,tag,P);
+    ev.push(`Dialogue: 0,${assTime(r.s)},${assTime(r.e)},${st},${markOf(r)},0,0,0,,${text}`);}
+  return P.lines.map(l=>l.split('{name}').join(nm)).concat(ev).join('\r\n')+'\r\n';
+}
+const buildOut=()=>S.settings.fmt==='srt'?buildSRT():buildASS();
+const outExt=()=>S.settings.fmt==='srt'?'.srt':'.ass';
+function baseName(){return (S.enName||'subtitle').replace(/\.[^.]+$/,'');}
+let dlCap=undefined;
+async function getDlCap(){if(dlCap!==undefined)return dlCap;dlCap=null;
+  try{if(window.claude&&typeof window.claude.use==='function')dlCap=await window.claude.use('downloads');}catch(e){dlCap=null;}return dlCap;}
+async function download(name,text,bom){
+  const blob=new Blob([bom?'﻿':'',text],{type:'text/plain;charset=utf-8'});
+  if(window.claude&&typeof window.claude.use==='function'){
+    const cap=await getDlCap();
+    if(cap){
+      const fn=/\.(json|txt)$/i.test(name)?name:name+'.txt';
+      try{await cap.save({filename:fn,data:blob});if(fn!==name)toast('网页版只能存为 .txt：下载后把文件名末尾的 .txt 删掉即可',6000);return;}
+      catch(e){if(e&&e.code==='declined')return;toast('保存失败，请改用“复制结果”，或下载 HTML 文件在本地打开使用',6000);return;}
+    }
+    toast('当前环境不能直接下载，请用“复制结果”，或下载 HTML 文件在本地打开使用',6000);return;
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+}
+function exportSRT(){readSettings();const remain=S.rows.filter(r=>r.flag||hasNl(r)).length,tfn=S.rows.filter(r=>r.tf).length,trn=S.rows.filter(needTr).length,dln=S.rows.filter(r=>r.dlg).length,pqn=S.rows.filter(r=>r.pq).length;download(baseName()+'.zh-en'+outExt(),buildOut(),S.settings.bom);
+  if(!(window.claude&&window.claude.use))toast('已导出'+(remain?`，还有 ${remain} 条待检查`:'')+(tfn?`；${tfn} 条需校时`:'')+(trn?`；${trn} 条待翻译`:'')+(dln?`；${dln} 条对白待审`:'')+(pqn?`；${pqn} 条标点待审`:'')+((tfn||trn||dln||pqn)?(S.settings.fmt==='srt'?(S.settings.srtMark?'（文字前有 {…} 标记）':''):'（见说话人栏）'):''),5000);}
+$('#btnExport').addEventListener('click',exportSRT);
+/* ---- 导出待翻译 ---- */
+const TKEY='srt-bilingual-trout-v1';
+const TR_DEF={ctx:2,ref:true,prompt:true};
+function trOpt(){try{return Object.assign({},TR_DEF,JSON.parse(localStorage.getItem(TKEY)||'{}'));}catch(e){return {...TR_DEF};}}
+const one=t=>(t||'').split('\n').map(x=>x.trim()).filter(Boolean).join(' ');
+function buildTrText(o){
+  const rows=S.rows,N=rows.length,need=[];rows.forEach((r,i)=>{if(needTr(r))need.push(i);});
+  if(!need.length)return {text:'',n:0,g:0};
+  // 待译行前后取上下文，重叠的片段合并
+  const groups=[];for(const i of need){const a=Math.max(0,i-o.ctx),b=Math.min(N-1,i+o.ctx);
+    const g=groups[groups.length-1];if(g&&a<=g.b+1)g.b=Math.max(g.b,b);else groups.push({a,b});}
+  const out=[];
+  if(o.prompt){out.push(
+    '请把下面字幕中标有【待译】的行翻译成简体中文字幕。',
+    '要求：',
+    '1. 只翻译【待译】行；【参考】行是上下文，帮助你理解剧情和语气，不要翻译、不要输出。',
+    '2. 每条译文写成一行，不要换行；风格、标点、人名译法与【参考】行里已有的中文保持一致。',
+    '3. 英文是双人对白（用“-”分开）时，中文也用“-”分开，“-”后空一格，如：- 你觉得怎么样? - 我觉得这保险柜不好开',
+    '4. 标有“已有中文（不完整）”的行，请给出整行完整的新译文。',
+    '5. 只输出译文，每行一条，格式：#编号<Tab>译文。不要输出英文、解释或其他内容。',
+    '');}
+  groups.forEach((g,gi)=>{
+    if(groups.length>1)out.push(`=== 片段 ${gi+1} ===`);
+    for(let i=g.a;i<=g.b;i++){const r=rows[i],en=one(r.en),cn=spaceCnDash(one(r.cn)),id='#'+(i+1);
+      if(needTr(r)){out.push(`${id}【待译】${en}`+(cn?`\n    已有中文（不完整）：${cn}`:''));}
+      else{if(!en&&!cn)continue;out.push(`${id}【参考】${en||'（无英文）'}`+(o.ref&&cn?`\n    中文：${cn}`:''));}
+    }
+    out.push('');});
+  return {text:out.join('\n').replace(/\n+$/,'')+'\n',n:need.length,g:groups.length};
+}
+function openTrOut(){
+  readSettings();const o=trOpt();
+  const w=document.createElement('div');w.className='cfm';
+  w.innerHTML=`<div class="card wide"><h2 style="margin:0 0 8px;font-size:17px">导出待翻译</h2>
+    <p class="stat" id="trInfo"></p>
+    <p><label>每条前后带上下文 <input type="number" id="trCtx" min="0" max="10" style="width:52px"> 条</label>
+    &nbsp; <label><input type="checkbox" id="trRef">上下文附上已有中文（让 AI 照着统一风格、人名译法）</label>
+    &nbsp; <label><input type="checkbox" id="trPrompt">开头附上翻译要求</label></p>
+    <textarea id="trTxt" readonly spellcheck="false" style="width:100%;height:46vh;font:13px/1.6 ui-monospace,Consolas,monospace;box-sizing:border-box"></textarea>
+    <p style="text-align:right;margin:12px 0 0"><button class="c0">关闭</button> <button class="c2">下载 .txt</button> <button class="c1 primary">复制</button></p></div>`;
+  document.body.appendChild(w);
+  const $w=q=>w.querySelector(q);let cur={text:'',n:0,g:0};
+  $w('#trCtx').value=o.ctx;$w('#trRef').checked=o.ref;$w('#trPrompt').checked=o.prompt;
+  const upd=()=>{o.ctx=Math.max(0,Math.min(10,+$w('#trCtx').value||0));o.ref=$w('#trRef').checked;o.prompt=$w('#trPrompt').checked;
+    try{localStorage.setItem(TKEY,JSON.stringify(o));}catch(e){}
+    cur=buildTrText(o);$w('#trTxt').value=cur.text;
+    $w('#trInfo').innerHTML=cur.n?`共 <b>${cur.n}</b> 条待翻译，分成 <b>${cur.g}</b> 个片段。编号 = 编辑器里每行左侧的 #号，拿回译文后按编号填回即可。`:'没有待翻译的条目。';};
+  ['#trCtx','#trRef','#trPrompt'].forEach(q=>$w(q).addEventListener('input',upd));upd();
+  const kd=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done();}};
+  const done=()=>{w.remove();document.removeEventListener('keydown',kd,true);};
+  document.addEventListener('keydown',kd,true);
+  $w('.c0').onclick=done;w.addEventListener('click',e=>{if(e.target===w)done();});
+  $w('.c1').onclick=async()=>{if(!cur.n)return;try{await navigator.clipboard.writeText(cur.text);toast('已复制，可直接粘贴给 AI');}catch(e){$w('#trTxt').select();toast('浏览器不允许直接复制：文本已全选，请按 Ctrl+C');}};
+  $w('.c2').onclick=()=>{if(cur.n)download(baseName()+'.待翻译.txt',cur.text,false);};
+}
+$('#btnTrOut').addEventListener('click',openTrOut);
+$('#btnCopy').addEventListener('click',async()=>{readSettings();try{await navigator.clipboard.writeText(buildOut());toast('已复制到剪贴板，可粘贴到记事本另存为 '+outExt());}catch(e){toast('复制失败：浏览器不允许访问剪贴板');}});
+$('#btnUndo').addEventListener('click',undo);$('#btnRedo').addEventListener('click',redo);
+$('#btnNextFlag').addEventListener('click',nextFlag);$('#btnNextUnused').addEventListener('click',nextUnused);$('#btnNextTf').addEventListener('click',nextTf);$('#btnNextTr').addEventListener('click',nextTr);$('#btnNextDlg').addEventListener('click',nextDlg);$('#btnTidy').addEventListener('click',tidyAll);
+$('#btnHelp').addEventListener('click',()=>$('#help').style.display='flex');
+$('#help').addEventListener('click',e=>{if(e.target.id==='help')e.currentTarget.style.display='none';});
+
+/* ================= 设置 ================= */
+const SET_MAP={sOffMode:'offMode',sManualOff:'manualOff',sSolo:'soloBracket',sCnNL:'cnNL',sCnPunct:'cnPunct',sEll:'ellMode',sDlg:'dlgFix',sPq:'pqFix',sOrder:'order',sEnOne:'oneLine',sCnTpl:'cnTpl',sEnTpl:'enTpl',sBom:'bom',sFmt:'fmt',sSrtNL:'srtNL',sSrtMark:'srtMark',sTrMusic:'trMusic'};
+function readSettings(){for(const[id,k]of Object.entries(SET_MAP)){const el=document.getElementById(id);S.settings[k]=el.type==='checkbox'?el.checked:(el.type==='number'?+el.value:el.value);}}
+function writeSettings(){for(const[id,k]of Object.entries(SET_MAP)){const el=document.getElementById(id);if(el.type==='checkbox')el.checked=!!S.settings[k];else el.value=S.settings[k];}}
+for(const id of Object.keys(SET_MAP))document.getElementById(id).addEventListener('change',()=>{readSettings();save();if(id==='sTrMusic'&&S.rows.length){const c=S.cur;renderAll();if(c>=0&&rowEl(c))rowEl(c).classList.add('cur');}});
+
+/* ================= 保存 / 恢复 ================= */
+const LS='srt-bilingual-merge-v1';let saveT=null;
+function projectData(){return {v:1,t:Date.now(),enName:S.enName,cnName:S.cnName,en:S.en,cn:S.cn,rows:S.rows,offInfo:S.offInfo,settings:S.settings,cur:S.cur,cnRepl:S.cnRepl||[],gloss:G.items};}
+/* ---- 多项目缓存（IndexedDB，不可用时用 localStorage） ---- */
+const CACHE_MAX=50,LSP=LS+':';
+const projId=(en,cn)=>(en||'（未命名英文）')+' + '+(cn||'（未命名中文）');
+let storeP=null;
+function cacheStore(){if(storeP)return storeP;
+  storeP=new Promise(res=>{try{const q=indexedDB.open('srt-bilingual-merge',1);
+      q.onupgradeneeded=()=>{const d=q.result;if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta',{keyPath:'id'});if(!d.objectStoreNames.contains('data'))d.createObjectStore('data');};
+      q.onsuccess=()=>res({kind:'idb',db:q.result});q.onerror=()=>res({kind:'ls'});q.onblocked=()=>res({kind:'ls'});
+    }catch(e){res({kind:'ls'});}});
+  return storeP;}
+const idbReq=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
+const idbTx=tx=>new Promise((res,rej)=>{tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error);});
+const lsIdx=()=>{try{return JSON.parse(localStorage.getItem(LSP+'idx')||'[]');}catch(e){return [];}};
+async function cList(){const st=await cacheStore();let L;
+  if(st.kind==='idb')L=await idbReq(st.db.transaction('meta').objectStore('meta').getAll());else L=lsIdx();
+  return L.sort((a,b)=>b.t-a.t);}
+async function cGet(id){const st=await cacheStore();
+  if(st.kind==='idb')return idbReq(st.db.transaction('data').objectStore('data').get(id));
+  const x=localStorage.getItem(LSP+'d:'+id);return x?JSON.parse(x):null;}
+async function cDel(id){const st=await cacheStore();
+  if(st.kind==='idb'){const tx=st.db.transaction(['meta','data'],'readwrite');tx.objectStore('meta').delete(id);tx.objectStore('data').delete(id);return idbTx(tx);}
+  localStorage.removeItem(LSP+'d:'+id);localStorage.setItem(LSP+'idx',JSON.stringify(lsIdx().filter(m=>m.id!==id)));}
+async function cPut(meta,data){const st=await cacheStore();
+  if(st.kind==='idb'){const tx=st.db.transaction(['meta','data'],'readwrite');tx.objectStore('meta').put(meta);tx.objectStore('data').put(data,meta.id);await idbTx(tx);}
+  else{localStorage.setItem(LSP+'d:'+meta.id,JSON.stringify(data));localStorage.setItem(LSP+'idx',JSON.stringify(lsIdx().filter(m=>m.id!==meta.id).concat([meta])));}
+  const L=await cList();for(const m of L.slice(CACHE_MAX))if(m.id!==meta.id)await cDel(m.id);}
+async function doSave(){saveT=null;if(!S.rows.length)return;
+  const d=projectData(),id=projId(d.enName,d.cnName);
+  const meta={id,enName:d.enName,cnName:d.cnName,t:d.t,n:S.rows.length,tr:S.rows.filter(needTr).length,tf:S.rows.filter(r=>r.tf).length,cur:d.cur};
+  try{await cPut(meta,d);$('#saved').textContent='已自动缓存 '+new Date().toLocaleTimeString();}
+  catch(e){$('#saved').textContent='缓存失败（空间不足？可在“缓存项目…”里删掉旧项目），请记得“保存项目”';}}
+function save(){clearTimeout(saveT);saveT=setTimeout(doSave,800);}
+function flushSave(){if(saveT){clearTimeout(saveT);return doSave();}return Promise.resolve();}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave();});
+window.addEventListener('pagehide',()=>{flushSave();});
+function loadProject(d){
+  S.enName=d.enName||'';S.cnName=d.cnName||'';S.en=d.en||[];S.cn=d.cn||[];S.rows=(d.rows||[]).map(r=>(r.solo&&r.tf===undefined?{...r,tf:'solo'}:r));S.offInfo=d.offInfo||'';
+  S.settings={...DEF_SET,...(d.settings||{})};writeSettings();S.cur=-1;hist=[];fut=[];pendingSnap=null;S.cnRepl=Array.isArray(d.cnRepl)?d.cnRepl:[];HL.cur=null;
+  if(Array.isArray(d.gloss)){const st=gMerge(d.gloss);if(st.add||st.fill)gRender();}
+  updateFileLabels();renderAll();renderSources();recomputeCoverage();updateButtons();$('#restore').style.display='none';
+  const c=Number.isInteger(d.cur)?Math.min(d.cur,S.rows.length-1):-1;
+  if(c>=0){focusRow(c,'cn','end',true);toast(`已载入：${S.rows.length} 条，已回到上次位置 #${c+1}`);}
+  else toast(`已载入：${S.rows.length} 条`);
+  save();flushSave();
+}
+const isOtherProj=d=>!S.rows.length||projId(d.enName,d.cnName)!==projId(S.enName,S.cnName);
+async function openCached(id){await flushSave();const d=await cGet(id).catch(()=>null);
+  if(!d||!d.rows){toast('读取缓存失败');return;}if(isOtherProj(d))clearVideo();loadProject(d);}
+$('#btnSaveProj').addEventListener('click',()=>download(baseName()+'.merge-project.json',JSON.stringify(projectData()),false));
+$('#inProj').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';
+  let d;try{d=JSON.parse(await f.text());if(!d.rows)throw 0;}catch(err){toast('不是有效的项目文件');return;}
+  await flushSave();
+  // 缓存比文件新时询问用哪个
+  const id=projId(d.enName,d.cnName),m=(await cList().catch(()=>[])).find(x=>x.id===id);
+  if(m&&d.t&&m.t>d.t+1000){
+    const useFile=await confirmBox(`<h2 style="margin:0 0 8px;font-size:17px">缓存里有更新的进度</h2>
+      <p>项目 <b>${esc(id)}</b></p><p>• 缓存：${new Date(m.t).toLocaleString()}（${m.n} 条）<br>• 文件：${new Date(d.t).toLocaleString()}（${d.rows.length} 条）</p>
+      <p class="stat">打开文件后再编辑，会覆盖缓存里的这份进度。</p>`,'打开文件里的','用缓存里更新的');
+    if(!useFile){openCached(id);return;}}
+  if(isOtherProj(d))clearVideo();loadProject(d);});
+// 缓存项目列表
+async function openCacheList(){
+  await flushSave();
+  const w=document.createElement('div');w.className='cfm';
+  w.innerHTML=`<div class="card wide"><h2 style="margin:0 0 8px;font-size:17px">缓存项目</h2>
+    <p class="stat" id="cInfo"></p><div id="cList"></div>
+    <p style="text-align:right;margin:12px 0 0"><button class="c0">关闭</button></p></div>`;
+  document.body.appendChild(w);const $w=q=>w.querySelector(q);
+  const kd=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done();}};
+  const done=()=>{w.remove();document.removeEventListener('keydown',kd,true);};
+  document.addEventListener('keydown',kd,true);$w('.c0').onclick=done;w.addEventListener('click',e=>{if(e.target===w)done();});
+  const draw=async()=>{const st=await cacheStore(),L=await cList().catch(()=>[]),curId=S.rows.length?projId(S.enName,S.cnName):'';
+    $w('#cInfo').textContent=`共 ${L.length} 个项目（最多保留 ${CACHE_MAX} 个，超出时删掉最久没动过的）· 存储：${st.kind==='idb'?'IndexedDB':'localStorage（空间较小）'}`;
+    $w('#cList').innerHTML=L.length?`<table style="width:100%;border-collapse:collapse;font-size:13px">`+L.map(m=>`<tr data-id="${esc(m.id)}" style="border-top:1px solid #eee${m.id===curId?';background:#eef6ff':''}">
+      <td style="padding:6px 4px"><b>${esc(m.enName||'（未命名英文）')}</b>${m.id===curId?' <span class="stat">（当前）</span>':''}<br><span class="stat">${esc(m.cnName||'')}</span></td>
+      <td style="padding:6px 4px;white-space:nowrap" class="stat">${m.n} 条${m.tr?` · 待翻译 ${m.tr}`:''}${m.tf?` · 需校时 ${m.tf}`:''}<br>${new Date(m.t).toLocaleString()}</td>
+      <td style="padding:6px 4px;white-space:nowrap;text-align:right">${m.id===curId?'':'<button data-a="open" class="primary">打开</button> '}<button data-a="del">删除</button></td></tr>`).join('')+`</table>`:'<p class="stat">还没有缓存的项目。</p>';};
+  $w('#cList').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;const id=b.closest('tr').dataset.id;
+    if(b.dataset.a==='open'){done();openCached(id);return;}
+    if(b.dataset.a==='del'){if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='确认删除';return;}
+      await cDel(id).catch(()=>{});if(S.rows.length&&id===projId(S.enName,S.cnName))$('#saved').textContent='当前项目的缓存已删除（再编辑会重新缓存）';draw();}});
+  draw();
+}
+$('#btnCache').addEventListener('click',openCacheList);
+(async function checkRestore(){
+  const L=await cList().catch(()=>[]);if(!L.length||S.rows.length)return;const m=L[0];
+  const box=$('#restore');box.style.display='block';
+  box.innerHTML=`上次的项目：<b>${esc(m.enName||'')}</b> + <b>${esc(m.cnName||'')}</b>（${m.n} 条，${new Date(m.t).toLocaleString()}） <button id="rsYes" class="primary">继续</button>`+
+    (L.length>1?` <button id="rsList">其他缓存项目（${L.length-1}）…</button>`:'')+` <button id="rsNo">关闭</button>`;
+  $('#rsYes').onclick=()=>openCached(m.id);
+  if(L.length>1)$('#rsList').onclick=openCacheList;
+  $('#rsNo').onclick=()=>{box.style.display='none';};
+})();
+
+/* ================= 视频 ================= */
+const vid=$('#video'),ovl=$('#ovl');let stopAt=null,raf=0;
+$('#inVid').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;
+  if(vid.src)URL.revokeObjectURL(vid.src);vid.src=URL.createObjectURL(f);$('#videoBox').style.display='block';$('#followWrap').style.display='';
+  const el=$('#fileVid');el.classList.add('loaded');el.querySelector('.nm').textContent=f.name;});
+// 换到另一集时卸下视频，恢复成未载入状态
+function clearVideo(){if(!vid.getAttribute('src'))return;
+  vid.pause();stopAt=null;URL.revokeObjectURL(vid.src);vid.removeAttribute('src');vid.load();ovl.innerHTML='';
+  $('#videoBox').style.display='none';$('#followWrap').style.display='none';$('#inVid').value='';
+  const el=$('#fileVid');el.classList.remove('loaded');el.querySelector('.nm').textContent='用于试看';}
+vid.addEventListener('error',()=>toast('浏览器无法解码这个视频（常见于 HEVC 或 AC3/DTS 音轨），可转成 mp4 再试；不影响字幕编辑'));
+function drawOvl(){const t=vid.currentTime*1000;
+  if(stopAt!=null&&t>=stopAt){vid.pause();stopAt=null;}
+  const act=S.rows.filter(r=>r.s<=t&&r.e>=t);
+  ovl.innerHTML=act.map(r=>(r.cn?`<div><span class="o ocn">${esc(r.cn)}</span></div>`:'')+(r.en?`<div><span class="o oen">${esc(r.en)}</span></div>`:'')).join('');}
+function loop(){drawOvl();if(!vid.paused)raf=requestAnimationFrame(loop);}
+vid.addEventListener('play',()=>{cancelAnimationFrame(raf);loop();});
+vid.addEventListener('pause',drawOvl);vid.addEventListener('seeked',drawOvl);
+function playRow(i){if(!vid.src){toast('先在顶部载入视频文件才能试看');return;}const r=S.rows[i];if(!r)return;
+  vid.currentTime=r.s/1000;stopAt=r.e+150;vid.play().catch(()=>{});}
+
+/* ================= 高亮层（查找匹配 / 词汇库词条） ================= */
+// 字幕框上叠一层透明文字，只给匹配处画底色
+const HL={cur:null,any:false};
+function hlHTML(i,f){
+  const t=(S.rows[i]&&S.rows[i][f])||'';if(!t)return '';
+  const cls=new Uint8Array(t.length);let any=false;
+  const mark=(a,b,c)=>{for(let x=a;x<b;x++)if(cls[x]<c)cls[x]=c;any=true;};
+  if(f==='cn'&&G.on)for(const it of G.items){if(!it.from)continue;let k=t.indexOf(it.from);while(k>=0){mark(k,k+it.from.length,it.to?2:3);k=t.indexOf(it.from,k+it.from.length);}}
+  if(f==='en'&&G.on)for(const it of G.items){const re=gEnRe(it.en);if(!re)continue;let m;while((m=re.exec(t)))mark(m.index,m.index+m[0].length,it.to?2:3);}
+  if(f==='en'&&G.on)for(const c of G.cands){const re=gEnRe(c.en);if(!re)continue;let m;while((m=re.exec(t)))mark(m.index,m.index+m[0].length,1);}
+  if(FR.re&&frFieldOn(f)){const re=FR.re;re.lastIndex=0;let m;while((m=re.exec(t))){if(!m[0].length){re.lastIndex++;continue;}mark(m.index,m.index+m[0].length,4);}}
+  const c=HL.cur;if(c&&c.i===i&&c.f===f&&c.e<=t.length)mark(c.s,c.e,5);
+  if(!any)return '';
+  let h='',k=0;while(k<t.length){let j=k;while(j<t.length&&cls[j]===cls[k])j++;const x=esc(t.slice(k,j));h+=cls[k]?`<mark class="m${cls[k]}">${x}</mark>`:x;k=j;}
+  return h+(t.endsWith('\n')?' ':'');
+}
+function hlRow(i){const el=rowEl(i);if(!el)return;
+  for(const f of ['en','cn']){const m=el.querySelector(f==='en'?'.hle':'.hlc');if(!m)continue;const h=hlHTML(i,f);if(m.innerHTML!==h)m.innerHTML=h;}}
+function hlAll(){
+  const need=!!FR.re||(G.on&&(G.items.length>0||G.cands.length>0))||!!HL.cur;
+  if(!need&&!HL.any)return;
+  for(let i=0;i<S.rows.length;i++)hlRow(i);HL.any=need;
+}
+let hlT=null;const hlSoon=()=>{clearTimeout(hlT);hlT=setTimeout(hlAll,120);};
+function hlJump(m){
+  const old=HL.cur;HL.cur=m;if(old&&old.i!==m.i)hlRow(old.i);
+  const el=rowEl(m.i);if(!el)return;setCurrent(m.i);hlRow(m.i);el.scrollIntoView({block:'center'});
+}
+// 找下一处 / 上一处匹配
+function hlStep(list,dir,base){
+  if(!list.length)return null;
+  if(!base){const c=HL.cur;base=c&&c.i===S.cur&&S.rows[c.i]?{k:c.i*2+(c.f==='cn'?1:0),s:c.s}:{k:S.cur<0?-1:S.cur*2,s:-1};}
+  const cmp=m=>((m.i*2+(m.f==='cn'?1:0))-base.k)||(m.s-base.s);
+  if(dir>0)return list.find(m=>cmp(m)>0)||list[0];
+  for(let j=list.length-1;j>=0;j--)if(cmp(list[j])<0)return list[j];
+  return list[list.length-1];
+}
+
+/* ================= 查找替换（常驻） ================= */
+const FR={re:null,err:''};
+const reEsc=t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+const frScope=()=>$('#frScope').value;
+const frFieldOn=f=>{const sc=frScope();return sc==='both'||sc===f;};
+const frFields=()=>{const sc=frScope();return sc==='both'?['en','cn']:[sc];};
+function frCompile(){
+  const q=$('#frFind').value;FR.err='';FR.re=null;
+  if(q){let p=$('#frRe').checked?q:reEsc(q);if($('#frWord').checked)p='(?<![\\p{L}\\p{N}_])(?:'+p+')(?![\\p{L}\\p{N}_])';
+    try{FR.re=new RegExp(p,'g'+($('#frCase').checked?'':'i')+'u');}catch(e){FR.err='正则写法有误';}}
+  return FR.re;
+}
+function frList(){
+  const re=FR.re,out=[];if(!re)return out;const fs=['en','cn'].filter(frFieldOn);
+  S.rows.forEach((r,i)=>{for(const f of fs){const t=r[f]||'';re.lastIndex=0;let m;while((m=re.exec(t))){if(!m[0].length){re.lastIndex++;continue;}out.push({i,f,s:m.index,e:m.index+m[0].length,src:'find'});}}});
+  return out;
+}
+function frInfo(list){
+  const el=$('#frInfo');el.classList.toggle('bad',!!FR.err);
+  if(FR.err){el.textContent=FR.err;return;}
+  if(!$('#frFind').value){el.textContent='';return;}
+  list=list||frList();const c=HL.cur;
+  const k=c&&c.src==='find'?list.findIndex(m=>m.i===c.i&&m.f===c.f&&m.s===c.s):-1;
+  el.textContent=list.length?(k>=0?`第 ${k+1} / ${list.length} 处`:`共 ${list.length} 处`):'找不到';
+}
+function frChanged(){frCompile();if(HL.cur&&HL.cur.src==='find'){const o=HL.cur;HL.cur=null;hlRow(o.i);}hlSoon();frInfo();}
+function frGo(dir,base){
+  if(!S.rows.length)return;
+  if(!frCompile()){frInfo();if(!FR.err)frFocus(false);return;}
+  const list=frList();if(!list.length){frInfo(list);toast('找不到“'+$('#frFind').value+'”');return;}
+  hlJump(hlStep(list,dir,base));frInfo(list);
+}
+function frCurMatch(){
+  const c=HL.cur,re=FR.re;if(!c||c.src!=='find'||!re||!S.rows[c.i])return null;
+  const t=S.rows[c.i][c.f]||'';re.lastIndex=c.s;const m=re.exec(t);
+  return m&&m.index===c.s&&m[0].length===c.e-c.s?m:null;
+}
+const frRepOf=m=>$('#frRe').checked?m[0].replace(new RegExp(FR.re.source,FR.re.flags.replace('g','')),$('#frRep').value):$('#frRep').value;
+function logRepl(f,re,to,rx){if(f!=='cn')return;const r={p:re.source,fl:re.flags,to,rx};
+  if(!S.cnRepl.some(x=>x.p===r.p&&x.fl===r.fl&&x.to===r.to&&x.rx===r.rx))S.cnRepl.push(r);}
+function applyRepl(t){
+  for(const r of (S.cnRepl||[])){try{t=t.replace(new RegExp(r.p,r.fl),r.rx?r.to:()=>r.to);}catch(e){}}
+  return t;
+}
+function frReplaceOne(){
+  if(!S.rows.length)return;
+  if(!frCompile()){frInfo();return;}
+  const m=frCurMatch();
+  if(!m){frGo(1);return;}
+  const c=HL.cur,r=S.rows[c.i],t=r[c.f]||'',to=frRepOf(m);
+  beginOp();r[c.f]=t.slice(0,c.s)+to+t.slice(c.e);logRepl(c.f,FR.re,$('#frRep').value,$('#frRe').checked);
+  HL.cur=null;updateRowEl(c.i);endOp();
+  frGo(1,{k:c.i*2+(c.f==='cn'?1:0),s:c.s+to.length-1});
+}
+function frReplaceAll(){
+  if(!S.rows.length)return;
+  if(!frCompile()){frInfo();toast(FR.err||'先输入要查找的内容');return;}
+  const re=FR.re,rx=$('#frRe').checked,to=$('#frRep').value;let n=0;const ch=[];
+  const fs=frFields();
+  const next=S.rows.map(r=>{const o={};for(const f of fs){const t=r[f]||'';let k=0;const u=t.replace(re,(...a)=>{if(!a[0].length)return a[0];k++;return rx?a[0].replace(new RegExp(re.source,re.flags.replace('g','')),to):to;});if(k){o[f]=u;n+=k;}}return o;});
+  if(!n){toast('找不到“'+$('#frFind').value+'”');return;}
+  beginOp();next.forEach((o,i)=>{if(Object.keys(o).length){Object.assign(S.rows[i],o);ch.push(i);}});
+  for(const f of fs)logRepl(f,re,to,rx);
+  HL.cur=null;ch.forEach(updateRowEl);endOp();frInfo();hlSoon();
+  toast(`已替换 ${n} 处，涉及 ${ch.length} 条（可撤销）`,3500);
+}
+function frFocus(rep){const el=$(rep?'#frRep':'#frFind');
+  if(!rep){const ta=document.activeElement;if(ta&&ta.tagName==='TEXTAREA'&&rowIndexOf(ta)>=0){const sel=ta.value.slice(ta.selectionStart,ta.selectionEnd);if(sel&&!sel.includes('\n')){el.value=sel;frChanged();}}}
+  el.focus();el.select();}
+['#frFind'].forEach(id=>$(id).addEventListener('input',frChanged));
+['#frScope','#frCase','#frWord','#frRe'].forEach(id=>$(id).addEventListener('change',frChanged));
+$('#frPrev').addEventListener('click',()=>frGo(-1));$('#frNext').addEventListener('click',()=>frGo(1));
+$('#frOne').addEventListener('click',frReplaceOne);$('#frAll').addEventListener('click',frReplaceAll);
+
+/* ================= ASS 模板编辑 ================= */
+function atDesc(head,tag){const P=atParse(head),sd=x=>x?`${x.name}（${x.font} ${x.size}）`:'';const c=P.styles[0],e=atTagStyle(tag,P);
+  if(!P.styles.length)return '模板里没有 Style 行';
+  return e?`中文 ${sd(c)}，英文 ${sd(P.styles.find(x=>x.name===e))}`:`中文 ${sd(c)}，英文 ${tag?'行内 '+tag:'同中文样式'}`;}
+function atUI(){$('#aSum').textContent=atDesc(AT.head,AT.enTag);}
+function atOpen(){
+  const w=document.createElement('div');w.className='cfm';
+  w.innerHTML=`<div class="card wide"><h2 style="margin:0 0 6px;font-size:17px">ASS 模板</h2>
+    <p class="stat" style="line-height:1.6">导出 ASS 时<b>文件头原样照搬</b>（<code>{name}</code> 会换成字幕文件名）。中文用模板里的<b>第一个样式</b>；双语行里英文前面加“英文标签”：
+    <code>{\\rEN}</code> = 英文换用 EN 样式（中英各一个样式），<code>{\\fnArial\\fs44}</code> = 只换字体字号。标签<b>只加在中英混排的行</b>；只有英文 / 只有中文的行不加标签，都用第一个样式。<br>
+    可以套用预设、直接粘贴整份 .ass（字幕行会被忽略），或读取一个现成的 .ass 文件（英文标签自动识别）。保存后存在本浏览器里，所有项目通用。</p>
+    <textarea id="atHead" spellcheck="false"></textarea>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:13px">
+      <label>英文标签 <input type="text" id="atTag" spellcheck="false" placeholder="{\\rEN} 或 {\\fnArial\\fs44}；留空 = 和中文同样式"></label>
+      <span style="flex:1"></span>
+      <select id="atPreset"><option value="">套用预设…</option>${Object.entries(AT_PRESETS).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join('')}</select>
+      <label class="file" style="border-style:solid;padding:2px 8px;background:#fff"><span class="lbl" style="font-weight:400">读取 .ass 文件</span><input type="file" accept=".ass,.ssa,.txt" id="atFile"></label>
+    </div>
+    <div id="atPrev"></div>
+    <p style="text-align:right;margin:12px 0 0"><button class="c0">取消</button> <button class="c1 primary">保存</button></p></div>`;
+  document.body.appendChild(w);
+  const ta=w.querySelector('#atHead'),tg=w.querySelector('#atTag'),pv=w.querySelector('#atPrev');
+  ta.value=AT.head;tg.value=AT.enTag;
+  const kd=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}};
+  const close=()=>{w.remove();document.removeEventListener('keydown',kd,true);};
+  document.addEventListener('keydown',kd,true);
+  const prev=()=>{const P=atParse(ta.value),t=tg.value.trim(),o=S.settings.order,warn=[];
+    if(!P.styles.length)warn.push('没找到 Style 行，将用“Default”');
+    if(t&&!/^\{\\[^}]*\}$/.test(t))warn.push('英文标签应形如 {\\rEN} 或 {\\fn字体\\fs字号}');
+    const rm=/^\{\\r([^\\}]+)\}$/.exec(t);if(rm&&!atTagStyle(t,P))warn.push(`模板里没有“${rm[1]}”样式`);
+    const d=(cn,en)=>{const [st,x]=atLine(cn,en,o,t,P);return `Dialogue: 0,0:00:00.10,0:00:02.76,${st},,0,0,0,,${x}`;};
+    pv.textContent=`${atDesc(ta.value,t)}${warn.length?'　⚠ '+warn.join('；'):''}\n导出示例：\n`+d('重返舞台感觉如何?','How does it feel to be back on stage?')+'\n'+d('','Thank you.')+'　← 只有英文的行';};
+  ta.addEventListener('input',prev);tg.addEventListener('input',prev);prev();
+  w.querySelector('#atPreset').addEventListener('change',e=>{const v=AT_PRESETS[e.target.value];e.target.value='';if(!v)return;ta.value=v.head;tg.value=v.tag;prev();});
+  w.querySelector('#atFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';
+    const txt=decodeBuffer(await f.arrayBuffer());if(!/\[v4\+? styles\]|\[script info\]/i.test(txt)){toast('这不像是 ASS 文件');return;}
+    ta.value=atParse(txt).lines.join('\n');const g=atGuessTag(txt);if(g)tg.value=g;prev();
+    toast(`已读取“${f.name}”的文件头`+(g?`，英文标签识别为 ${g}`:'（没识别到英文标签，请手动填）'),4000);});
+  w.querySelector('.c0').onclick=close;
+  w.querySelector('.c1').onclick=()=>{AT.head=atParse(ta.value).lines.join('\n');AT.enTag=tg.value.trim();atSave();atUI();close();toast('ASS 模板已保存（所有项目通用）');};
+  ta.focus();ta.setSelectionRange(0,0);ta.scrollTop=0;
+}
+$('#aEdit').addEventListener('click',atOpen);
+
+/* ================= 专有词汇库 ================= */
+const GKEY='srt-bilingual-glossary-v1';
+const G={on:false,auto:true,items:[],cands:[],sep:'·'};
+const gClean=x=>({en:String(x.en||'').trim(),from:String(x.from||x.cn||'').trim(),to:String(x.to||x.sc||'').trim()});
+(function(){try{const d=JSON.parse(localStorage.getItem(GKEY)||'null');if(d){G.on=!!d.on;G.auto=d.auto!==false;G.items=Array.isArray(d.items)?d.items.map(gClean).filter(x=>x.from):[];G.cands=Array.isArray(d.cands)?d.cands.filter(x=>x&&x.en).map(x=>({en:String(x.en),src:String(x.src||'')})):[];if(typeof d.sep==='string'&&d.sep)G.sep=d.sep;}}catch(e){}})();
+function gSave(){try{localStorage.setItem(GKEY,JSON.stringify(G));}catch(e){}}
+const gEnCache=new Map();
+function gEnRe(en){if(!en)return null;let re=gEnCache.get(en);
+  if(!re){try{re=new RegExp('(?<![\\p{L}\\p{N}_])'+reEsc(en)+'(?![\\p{L}\\p{N}_])','giu');}catch(e){re=null;}gEnCache.set(en,re);}
+  if(re)re.lastIndex=0;return re;}
+function gCount(from){let n=0;if(!from)return 0;for(const r of S.rows){const t=r.cn||'';let k=t.indexOf(from);while(k>=0){n++;k=t.indexOf(from,k+from.length);}}return n;}
+function gCountEn(en){const re=gEnRe(en);if(!re)return 0;let n=0;for(const r of S.rows){re.lastIndex=0;const m=(r.en||'').match(re);if(m)n+=m.length;}return n;}
+// 合并词条：同一繁中译名只留一条
+function gMerge(items){const st={add:0,fill:0,diff:0};
+  for(const raw of items){if(!raw)continue;const x=gClean(raw);if(!x.from)continue;const o=G.items.find(y=>y.from===x.from);
+    if(!o){G.items.push(x);st.add++;continue;}
+    let f=false;if(!o.en&&x.en){o.en=x.en;f=true;}if(!o.to&&x.to){o.to=x.to;f=true;}if(f)st.fill++;
+    if((x.to&&o.to&&x.to!==o.to)||(x.en&&o.en&&x.en.toLowerCase()!==o.en.toLowerCase()))st.diff++;}
+  if(st.add||st.fill){G.cands=G.cands.filter(c=>!gHasEn(c.en));gSave();}return st;}
+function gApplyUI(){
+  document.body.classList.toggle('g-on',G.on);$('#gOn').checked=G.on;$('#gAuto').checked=G.auto;
+  if(!G.on)setSideTab('src');gRender();HL.any=true;hlAll();
+}
+function setSideTab(tab){$('#side').classList.toggle('tab-gloss',tab==='gloss');document.querySelectorAll('.stab').forEach(el=>el.classList.toggle('on',el.dataset.tab===tab));}
+function gRender(){
+  gCandRender();const L=$('#gList');
+  if(!G.items.length){L.innerHTML='<div class="gEmpty">词库是空的。<br>① 在<b>英文框</b>里选中原文（如 Steve），按 <kbd>Alt</kbd>+<kbd>G</kbd>；<br>② 在<b>中文框</b>（或右侧原字幕）里选中对应的繁中译名（如 史提夫），再按 <kbd>Alt</kbd>+<kbd>G</kbd>。<br>两项都有了就会自动加入（顺序不限）；也可以在上面三个框里直接输入后点“添加”。<br>查到简体译名后填进去，点“替换”或“全部替换”。<br><br>已有词库文件？点上面的“导入词库文件”。</div>';gUpdateCounts();return;}
+  L.innerHTML='<div class="gListHead"><span>英文原文</span><span>繁中译名</span><span></span><span>简体译名</span><span style="text-align:right">文中出现</span></div>'+
+    G.items.map((it,k)=>`<div class="gi${it.en?'':' noen'}" data-k="${k}">`+
+    `<input class="ge" type="text" value="${esc(it.en)}" placeholder="缺英文原文" spellcheck="false" title="英文原文（可修改）">`+
+    `<span class="gf" title="点击：跳到文中下一处">${esc(it.from)}</span><span class="ga">→</span>`+
+    `<input class="gt" type="text" value="${esc(it.to)}" placeholder="填简体译名" spellcheck="false" title="填好后按 Enter = 替换这一条">`+
+    `<span class="gr"><span class="gc"></span><button data-g="next" title="跳到中文里的下一处">▸</button><button data-g="apply" title="把文中所有“${esc(it.from)}”换成简体译名">替换</button><button data-g="del" title="从词库删除">✕</button></span></div>`).join('');
+  gUpdateCounts();
+}
+function gUpdateCounts(){
+  if(!G.on)return;let pend=0,ready=0;
+  document.querySelectorAll('#gList .gi').forEach(el=>{const it=G.items[+el.dataset.k];if(!it)return;const n=gCount(it.from),ne=gCountEn(it.en);
+    el.querySelector('.gc').innerHTML=(it.en?`英 ${ne} · `:'')+(n?`中 <b>${n}</b>`:'中 0');
+    el.querySelector('.gc').title=it.en?`英文“${it.en}”出现 ${ne} 处；中文“${it.from}”出现 ${n} 处`+(ne>n&&n>=0?'（英文比中文多，可能有别的译法或代词，可用顶部查找核对）':''):'';
+    el.classList.toggle('pend',!it.to&&n>0);el.classList.toggle('done',n===0);el.classList.toggle('noen',!it.en);
+    if(n&&!it.to)pend++;if(n&&it.to&&it.to!==it.from)ready+=n;});
+  $('#gTabCnt').textContent=(pend?`· 待填 ${pend}`:'')+(G.cands.length?` · 待配对 ${G.cands.length}`:'');
+  const b=$('#gApplyAll');b.textContent=ready?`全部替换（${ready} 处）`:'全部替换';b.disabled=!ready;
+}
+let gT=null;const gSoon=()=>{clearTimeout(gT);gT=setTimeout(()=>{gUpdateCounts();hlAll();},250);};
+let gcT=null;const gCandSoon=()=>{clearTimeout(gcT);gcT=setTimeout(gCandRender,400);};
+const gTrimEn=t=>t.replace(/\s+/g,' ').replace(/^[\s\p{P}]+|[\s\p{P}]+$/gu,'').replace(/['’]s$/i,'');
+const gTrimCn=t=>t.replace(/\s+/g,'').replace(/^[\p{P}\s]+|[\p{P}\s]+$/gu,'');
+function gAdd(en,from,to){
+  en=gTrimEn(en||'');from=gTrimCn(from||'');to=(to||'').trim();
+  if(!en||!from){toast('英文原文和繁中译名两项都要有');return false;}
+  if(from.length>30||en.length>60){toast('选中的文字太长了，词条一般是一个人名 / 地名');return false;}
+  const k=G.items.findIndex(x=>x.from===from);
+  if(k>=0){const o=G.items[k];let f=false;if(!o.en){o.en=en;f=true;}if(to&&!o.to){o.to=to;f=true;}
+    gCandDrop(en);if(f){gSave();gRender();hlAll();}toast(`“${from}”已经在词库里了`+(f?'（已补全）':''));gFlash(k);return true;}
+  G.items.unshift({en,from,to});gCandDrop(en);gSave();gRender();hlAll();
+  toast(`已加入词库：${en} = ${from}（中文 ${gCount(from)} 处）`+(to?'':'，之后在“专有词汇库”页签里填简体译名'),3500);gFlash(0);
+  return true;
+}
+function gFlash(k){const el=document.querySelector(`#gList .gi[data-k="${k}"]`);if(!el)return;el.scrollIntoView({block:'nearest'});el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');}
+function gDraftUI(){$('#gEn').classList.toggle('filled',!!$('#gEn').value.trim());$('#gFrom').classList.toggle('filled',!!$('#gFrom').value.trim());}
+// Alt+G：选中英文填原文，选中中文填繁中译名
+function gAddSel(){
+  if(!G.on){toast('专有词汇库没有启用：在“设置”里勾选“启用”即可');return;}
+  let txt='',kind='';const a=document.activeElement;
+  if(a&&a.tagName==='TEXTAREA'&&rowIndexOf(a)>=0){txt=a.value.slice(a.selectionStart,a.selectionEnd);kind=a.classList.contains('en')?'en':'cn';}
+  if(!txt){const ws=String(window.getSelection()||'');if(ws.trim())txt=ws;}
+  if(!txt&&lastSel&&lastSel.e>lastSel.s&&S.rows[lastSel.i]){txt=(S.rows[lastSel.i][lastSel.f]||'').slice(lastSel.s,lastSel.e);kind=lastSel.f;}
+  if(!txt.trim()){toast('先选中文字：英文框里选原文，中文框里选译名');return;}
+  if(!kind)kind=CJK.test(txt)?'cn':'en';
+  const box=$(kind==='en'?'#gEn':'#gFrom');box.value=kind==='en'?gTrimEn(txt):gTrimCn(txt);gDraftUI();
+  const en=$('#gEn').value.trim(),from=$('#gFrom').value.trim();
+  if(en&&from){if(gAdd(en,from,$('#gTo').value)){$('#gEn').value='';$('#gFrom').value='';$('#gTo').value='';gDraftUI();}return;}
+  toast(kind==='en'?`已记下英文“${box.value}”，再到中文框选中对应的译名按 Alt+G`:`已记下译名“${box.value}”，再到英文框选中原文按 Alt+G`,4000);
+}
+function gAddManual(){const en=$('#gEn').value,f=$('#gFrom').value,t=$('#gTo').value;
+  if(!en.trim()){$('#gEn').focus();toast('英文原文和繁中译名两项都要有');return;}
+  if(!f.trim()){$('#gFrom').focus();toast('英文原文和繁中译名两项都要有');return;}
+  if(gAdd(en,f,t)){$('#gEn').value='';$('#gFrom').value='';$('#gTo').value='';gDraftUI();$('#gEn').focus();}}
+// 把词条替换进所有中文，返回替换处数
+function gReplaceRows(items){
+  const list=items.filter(x=>x&&x.from&&x.to&&x.from!==x.to).sort((a,b)=>b.from.length-a.from.length);let n=0;
+  if(!list.length)return 0;
+  for(const r of S.rows){let t=r.cn||'';if(!t)continue;
+    for(const it of list){if(!t.includes(it.from))continue;n+=t.split(it.from).length-1;t=t.split(it.from).join(it.to);}
+    r.cn=t;}
+  if(n)for(const it of list)logRepl('cn',new RegExp(reEsc(it.from),'g'),it.to,false);
+  return n;
+}
+function gReplaceUI(items){
+  items=items.filter(Boolean);
+  if(!items.some(x=>x.to)){toast('先填好简体译名');return;}
+  const before=S.rows.map(r=>r.cn);
+  const snap0=snap();const n=gReplaceRows(items);
+  if(!n){toast('文中已经没有这些词了');return;}
+  pushHist(snap0);pendingSnap=null;
+  S.rows.forEach((r,i)=>{if(r.cn!==before[i])updateRowEl(i);});
+  HL.cur=null;endOp();gUpdateCounts();hlAll();
+  toast(`已替换 ${n} 处（可撤销）`);
+}
+function gJump(k){const it=G.items[k];if(!it)return;const list=[];
+  S.rows.forEach((r,i)=>{const t=r.cn||'';let p=t.indexOf(it.from);while(p>=0){list.push({i,f:'cn',s:p,e:p+it.from.length,src:'gloss'});p=t.indexOf(it.from,p+it.from.length);}});
+  if(!list.length){toast(`中文里没有“${it.from}”`);return;}
+  const m=hlStep(list,1);hlJump(m);const idx=list.indexOf(m);toast(`“${it.from}” 第 ${idx+1} / ${list.length} 处`,1500);}
+function gExportFile(){
+  if(!G.items.length&&!G.cands.length){toast('词库是空的');return;}
+  const d=new Date(),ds=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  download(`glossary-${ds}.json`,JSON.stringify({type:'srt-merge-glossary',version:3,exported:d.toISOString(),count:G.items.length,items:G.items,pending:G.cands},null,1),false);
+  if(!(window.claude&&window.claude.use))toast(`已导出 ${G.items.length} 条词条`);
+}
+let gClearArmed=0;
+$('#gOn').addEventListener('change',e=>{G.on=e.target.checked;gSave();gApplyUI();if(G.on){setSideTab('gloss');toast('已启用专有词汇库（之后会一直保持开启）');}});
+$('#gAuto').addEventListener('change',e=>{G.auto=e.target.checked;gSave();});
+$('#sideTabs').addEventListener('click',e=>{const t=e.target.closest('.stab');if(t)setSideTab(t.dataset.tab);});
+$('#gAdd').addEventListener('click',gAddManual);
+['#gEn','#gFrom'].forEach(id=>$(id).addEventListener('input',gDraftUI));
+[$('#gAddSel'),$('#gAddTop')].forEach(b=>{b.addEventListener('mousedown',e=>e.preventDefault());b.addEventListener('click',gAddSel);});
+$('#gApplyAll').addEventListener('click',()=>gReplaceUI(G.items));
+$('#gList').addEventListener('click',e=>{const row=e.target.closest('.gi');if(!row)return;const k=+row.dataset.k;
+  if(e.target.closest('.gf'))return gJump(k);
+  const b=e.target.closest('button[data-g]');if(!b)return;const op=b.dataset.g;
+  if(op==='next')gJump(k);
+  else if(op==='apply')gReplaceUI([G.items[k]]);
+  else if(op==='del'){const it=G.items[k];G.items.splice(k,1);gSave();gRender();hlAll();toast(`已从词库删除“${it.from}”`);}});
+$('#gList').addEventListener('input',e=>{const row=e.target.closest('.gi');if(!row)return;const it=G.items[+row.dataset.k];if(!it)return;
+  if(e.target.classList.contains('gt'))it.to=e.target.value.trim();
+  else if(e.target.classList.contains('ge'))it.en=e.target.value.trim();
+  else return;gSave();gSoon();});
+$('#gExport').addEventListener('click',gExportFile);
+$('#gClear').addEventListener('click',()=>{
+  if(!G.items.length)return;
+  if(Date.now()-gClearArmed>4000){gClearArmed=Date.now();const b=$('#gClear');b.textContent='再点一次确认清空';setTimeout(()=>b.textContent='清空',4000);return;}
+  gClearArmed=0;$('#gClear').textContent='清空';G.items=[];G.cands=[];gSave();gRender();hlAll();toast('词库已清空');});
+
+/* ---- 待配对英文（导入的英文名单） ---- */
+const gHasEn=en=>{const l=String(en).toLowerCase();return G.items.some(x=>(x.en||'').toLowerCase()===l);};
+function gCandDrop(en){const l=String(en||'').toLowerCase();const n=G.cands.length;G.cands=G.cands.filter(c=>c.en.toLowerCase()!==l);if(G.cands.length!==n){gSave();gCandRender();}}
+function gCandAdd(list){let n=0;for(const x of list){if(!x||!x.en)continue;const en=String(x.en).trim();if(!en||gHasEn(en)||G.cands.some(c=>c.en.toLowerCase()===en.toLowerCase()))continue;G.cands.push({en,src:String(x.src||'')});n++;}
+  if(n){gSave();}return n;}
+function gCandRender(){
+  const box=$('#gCand');if(!G.cands.length){box.innerHTML='';return;}
+  const cnt=G.cands.map(c=>gCountEn(c.en));const order=G.cands.map((c,k)=>k).sort((a,b)=>(cnt[b]>0)-(cnt[a]>0)||cnt[b]-cnt[a]||a-b);
+  const cur=($('#gEn').value||'').trim().toLowerCase();const here=cnt.filter(x=>x>0).length;
+  box.innerHTML=`<div class="ch"><span class="t">待配对英文 ${G.cands.length}</span><span class="stat">（本集出现 ${here} 个）点名字跳到英文出现处 → 在中文框选中对应译名按 <kbd>Alt</kbd>+<kbd>G</kbd></span><span style="flex:1"></span><button id="gCandClr" style="font-size:11.5px;padding:0 6px" title="清空待配对列表（不影响词库）">清空待配对</button></div>`+
+    `<div class="cl">`+order.map(k=>{const c=G.cands[k],n=cnt[k];return `<span class="gcd${n?'':' zero'}${c.en.toLowerCase()===cur?' sel':''}" data-c="${k}" title="${esc(c.src?'角色：'+c.src:'')}${n?'':'&#10;本集英文里没有出现（可能在别的集）'}"><span class="n">${esc(c.en)}</span><i>${n}</i><span class="x" title="从待配对里移除">✕</span></span>`;}).join('')+`</div>`;
+}
+let gCandArmed=0;
+$('#gCand').addEventListener('click',e=>{
+  if(e.target.id==='gCandClr'){if(Date.now()-gCandArmed>4000){gCandArmed=Date.now();e.target.textContent='再点一次确认';setTimeout(()=>{const b=$('#gCandClr');if(b)b.textContent='清空待配对';},4000);return;}
+    G.cands=[];gSave();gCandRender();hlAll();toast('已清空待配对列表');return;}
+  const chip=e.target.closest('.gcd');if(!chip)return;const k=+chip.dataset.c,c=G.cands[k];if(!c)return;
+  if(e.target.classList.contains('x')){G.cands.splice(k,1);gSave();gCandRender();hlAll();return;}
+  $('#gEn').value=c.en;gDraftUI();gCandRender();
+  const re=gEnRe(c.en),list=[];
+  S.rows.forEach((r,i)=>{const t=r.en||'';re.lastIndex=0;let m;while((m=re.exec(t)))list.push({i,f:'en',s:m.index,e:m.index+m[0].length,src:'cand'});});
+  if(!list.length){toast(`本集英文里没有“${c.en}”（可能在别的集）；英文原文已填好，也可以直接在中文框选中译名按 Alt+G`,4500);return;}
+  const m=hlStep(list,1);hlJump(m);
+  toast(`“${c.en}” 第 ${list.indexOf(m)+1} / ${list.length} 处 —— 在中文框选中对应译名，按 Alt+G（再点名字 = 下一处）`,4000);
+});
+
+/* ---- 人名加分隔号 ---- */
+const SEP_OPTS=[['·','·（U+00B7，简中常用）'],['‧','‧（U+2027，繁中常用）'],['・','・（全角中点）'],['•','•（圆点）']];
+function gSepIndex(){
+  const m=new Map();
+  for(const it of G.items){const en=(it.en||'').toLowerCase();
+    for(const f of [it.from,it.to]){if(!f||f.length<2||!CJK.test(f))continue;
+      if(!m.has(f))m.set(f,new Set());if(en)m.get(f).add(en);}}
+  return m;
+}
+const gEnItems=()=>{const seen=new Set(),out=[];for(const it of G.items){const l=(it.en||'').toLowerCase();if(l&&!seen.has(l)){seen.add(l);out.push(it.en);}}return out;};
+function gEnPairs(t,ens){
+  const out=new Set();if(!t)return out;const ms=[];
+  for(const en of ens){const re=gEnRe(en);if(!re)continue;let m;while((m=re.exec(t)))ms.push({s:m.index,e:m.index+m[0].length,l:en.toLowerCase()});}
+  for(const a of ms)for(const b of ms){if(b.s<=a.s)continue;const gap=t.slice(a.e,b.s);if(/^(?:\s+|-)$/.test(gap))out.add(a.l+'\u0001'+b.l);}
+  return out;
+}
+function gSepScan(){
+  const idx=gSepIndex();if(!idx.size)return [];
+  const forms=[...idx.keys()].sort((a,b)=>b.length-a.length),ens=gEnItems();
+  const rowPairs=S.rows.map(r=>gEnPairs(r.en||'',ens)),all=new Set();rowPairs.forEach(p=>p.forEach(x=>all.add(x)));
+  const near=i=>{const s=new Set();for(let k=i-1;k<=i+1;k++)if(rowPairs[k])rowPairs[k].forEach(x=>s.add(x));return s;};
+  const out=[];
+  S.rows.forEach((r,i)=>{const t=r.cn||'';if(t.length<4)return;
+    const at=new Array(t.length);
+    for(const f of forms){let k=t.indexOf(f);while(k>=0){if(!at[k])at[k]=f;k=t.indexOf(f,k+1);}}
+    const js=[],names=[];let prev=null,p=0;
+    while(p<t.length){const f=at[p];
+      if(!f){prev=null;p++;continue;}
+      const cur={s:p,e:p+f.length,f};names.push(cur);
+      if(prev&&prev.e===p){
+        const A=idx.get(prev.f),B=idx.get(f),nr=near(i);let why='none',pair='';
+        for(const a of A)for(const b of B){const key=a+'\u0001'+b;if(nr.has(key)){why='row';pair=a+' '+b;}else if(why!=='row'&&all.has(key)){why='ep';pair=a+' '+b;}}
+        if(!A.size||!B.size)why='noen';
+        js.push({pos:p,a:prev.f,b:f,why,pair,on:why==='row'||why==='ep'});}
+      prev=cur;p=cur.e;}
+    if(js.length)out.push({i,cn:t,en:r.en||'',js,names});
+  });
+  return out;
+}
+const SP_WHY={row:'英文本行附近就连着出现',ep:'英文本集别处连着出现过',none:'英文里没连着出现过，请自己判断',noen:'词条缺英文原文，无法用英文印证，请自己判断'};
+function gSepOpen(){
+  if(!G.on){toast('先在设置里启用专有词汇库');return;}
+  if(!S.rows.length){toast('先载入字幕并对齐');return;}
+  if(!G.items.length){toast('词库是空的：先把人名（名、姓分开）加进词库');return;}
+  const list=gSepScan();
+  if(!list.length){toast('没有找到连在一起的词库人名（已经有分隔号的不算）',3500);return;}
+  const ens=gEnItems();
+  const enHTML=t=>{const cls=new Uint8Array(t.length);for(const en of ens){const re=gEnRe(en);if(!re)continue;let m;while((m=re.exec(t)))for(let x=m.index;x<m.index+m[0].length;x++)cls[x]=1;}
+    let h='',k=0;while(k<t.length){let j=k;while(j<t.length&&cls[j]===cls[k])j++;h+=cls[k]?`<span class="nm">${esc(t.slice(k,j))}</span>`:esc(t.slice(k,j));k=j;}return h;};
+  const w=document.createElement('div');w.className='cfm';
+  w.innerHTML=`<div class="card wide"><h2 style="margin:0 0 6px;font-size:17px">人名加分隔号</h2>
+    <p class="stat" style="line-height:1.6">按词库里的译名，找出中文里<b>两个词条紧挨着</b>的地方（如“约翰保罗盖蒂”），在中间加分隔号。
+    <span style="background:#d8f3dc;color:#14692b;padding:0 3px;border-radius:3px">绿色</span> = 英文里这几个名字也是连着的（如 John Paul Getty），默认加；
+    <span style="background:#fff1c2;color:#8a5a00;padding:0 3px;border-radius:3px">黄色</span> = 英文里没印证，默认不加，请自己判断。<b>点预览里的分隔号</b>可以单独加 / 不加。</p>
+    <div id="spBar"></div><div id="spList"></div>
+    <p style="text-align:right;margin:12px 0 0"><button class="c0">取消</button> <button class="c1 primary">添加分隔号</button></p></div>`;
+  document.body.appendChild(w);
+  const ok=w.querySelector('.c1'),L=w.querySelector('#spList'),bar=w.querySelector('#spBar');
+  const kd=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}};
+  const close=()=>{w.remove();document.removeEventListener('keydown',kd,true);};
+  document.addEventListener('keydown',kd,true);
+  const total=list.reduce((a,x)=>a+x.js.length,0),strong=list.reduce((a,x)=>a+x.js.filter(j=>j.why==='row'||j.why==='ep').length,0);
+  const drawBar=()=>{bar.innerHTML=`<span class="stat">共 ${list.length} 行、${total} 处（英文印证 ${strong} 处，未印证 ${total-strong} 处）</span>`+
+    `<label class="stat" style="margin-left:8px">分隔号 <select id="spSep">${SEP_OPTS.map(([v,l])=>`<option value="${esc(v)}"${v===G.sep?' selected':''}>${esc(l)}</option>`).join('')}</select></label>`+
+    `<span style="flex:1"></span><button data-b="all">全选</button><button data-b="strong">只选英文印证的</button><button data-b="none">全不选</button>`;};
+  const rowHTMLsp=(x,k)=>{let h='',p=0;const sep=G.sep;
+    const nm=new Map(x.names.map(n=>[n.s,n]));
+    const seg=(a,b)=>{let s='',c=a;while(c<b){const n=nm.get(c);if(n&&n.e<=b){s+=`<span class="nm">${esc(x.cn.slice(n.s,n.e))}</span>`;c=n.e;}else{let d=c+1;while(d<b&&!nm.has(d))d++;s+=esc(x.cn.slice(c,d));c=d;}}return s;};
+    x.js.forEach((j,jx)=>{h+=seg(p,j.pos);const weak=!(j.why==='row'||j.why==='ep');
+      h+=`<span class="sp ${j.on?'on':'off'}${weak?' weak':''}" data-j="${jx}" title="${esc(j.a)} | ${esc(j.b)}&#10;${esc(SP_WHY[j.why])}${j.pair?'：'+esc(j.pair):''}&#10;点击：${j.on?'不加':'加'}">${esc(sep)}</span>`;p=j.pos;});
+    h+=seg(p,x.cn.length);
+    const on=x.js.filter(j=>j.on).length,weakN=x.js.filter(j=>!(j.why==='row'||j.why==='ep')).length;
+    return `<div class="r${on?'':' off'}" data-k="${k}"><input type="checkbox" data-k="${k}"${on?' checked':''}><span class="no">#${x.i+1}</span><span class="cnp">${h}${weakN?`<span class="tag">${weakN} 处英文未印证</span>`:''}</span><span class="enp">${enHTML(x.en)}</span></div>`;};
+  const refresh=()=>{const n=list.reduce((a,x)=>a+x.js.filter(j=>j.on).length,0);ok.disabled=!n;ok.textContent=n?`添加分隔号（${n} 处）`:'添加分隔号';};
+  const drawList=()=>{L.innerHTML=list.map(rowHTMLsp).join('');
+    L.querySelectorAll('input[type=checkbox]').forEach(cb=>{const x=list[+cb.dataset.k],n=x.js.filter(j=>j.on).length;cb.indeterminate=n>0&&n<x.js.length;});refresh();};
+  const redrawRow=k=>{const el=L.querySelector(`.r[data-k="${k}"]`);if(!el)return;const t=document.createElement('div');t.innerHTML=rowHTMLsp(list[k],k);const nw=t.firstChild;el.replaceWith(nw);
+    const cb=nw.querySelector('input'),x=list[k],n=x.js.filter(j=>j.on).length;cb.indeterminate=n>0&&n<x.js.length;refresh();};
+  drawBar();drawList();
+  bar.addEventListener('change',e=>{if(e.target.id==='spSep'){G.sep=e.target.value;gSave();drawList();}});
+  bar.addEventListener('click',e=>{const b=e.target.dataset.b;if(!b)return;list.forEach(x=>x.js.forEach(j=>j.on=b==='all'||(b==='strong'&&(j.why==='row'||j.why==='ep'))));drawList();});
+  L.addEventListener('click',e=>{const sp=e.target.closest('.sp');if(!sp)return;const k=+sp.closest('.r').dataset.k,j=list[k].js[+sp.dataset.j];j.on=!j.on;redrawRow(k);});
+  L.addEventListener('change',e=>{if(e.target.type!=='checkbox')return;const x=list[+e.target.dataset.k];x.js.forEach(j=>j.on=e.target.checked);redrawRow(+e.target.dataset.k);});
+  w.querySelector('.c0').onclick=close;
+  ok.onclick=()=>{
+    const sep=G.sep;let n=0;
+    const todo=list.map(x=>({x,on:x.js.filter(j=>j.on).sort((a,b)=>b.pos-a.pos)})).filter(y=>y.on.length&&S.rows[y.x.i]&&S.rows[y.x.i].cn===y.x.cn);
+    close();if(!todo.length){toast('没有勾选要加的分隔号');return;}
+    beginOp();
+    for(const {x,on} of todo){const r=S.rows[x.i];let t=r.cn;for(const j of on)t=t.slice(0,j.pos)+sep+t.slice(j.pos);r.cn=t;n+=on.length;updateRowEl(x.i);}
+    const rows=todo.length;HL.cur=null;endOp();gUpdateCounts();hlAll();
+    toast(`已在 ${rows} 行加了 ${n} 个分隔号（可 Ctrl+Z 撤销）`,3500);
+  };
+  ok.focus();refresh();
+}
+$('#gSepBtn').addEventListener('click',gSepOpen);
+
+/* ---- 导入 IMDb 演员表 ---- */
+const IL_TITLES=new Set('ds di dc dci dsi dsu dcs dcc pc wpc sgt sergeant det detective inspector constable superintendent supt chief officer commander commissioner agent special captain capt lieutenant lt major colonel col general gen private corporal cpl admiral dr doctor mr mrs ms miss mx sir dame lady lord prof professor rev reverend father sister brother mother nurse judge justice young younger old older little big uncle aunt auntie grandma grandpa granny the a an of and jr sr junior senior ii iii iv'.split(' '));
+const IL_GENERIC=new Set('man woman men women boy girl child kid baby teen teenager police policeman policewoman cop barman barmaid bartender waiter waitress reporter journalist presenter newsreader anchor driver taxi cab guard security prison prisoner inmate officer receptionist secretary assistant clerk customer shopper student pupil teacher headteacher neighbour neighbor mum dad mom son daughter wife husband friend girlfriend boyfriend victim witness suspect paramedic pathologist forensic forensics scientist technician tech uniform uniformed sco duty desk custody solicitor lawyer barrister doctor surgeon consultant priest vicar minister mp councillor mayor dj singer band member members fan fans crowd passenger passerby pedestrian worker workers staff manager owner landlord landlady tenant cleaner porter paramedics nurse nurses self narrator voice host guest reporter caller operator dispatcher hiker walker body corpse thug thugs heavy henchman gang punter punters drinker drinkers tourist tourists villager villagers resident residents local locals stranger various unknown uncredited archive footage additional'.split(' '));
+const IL_STOP=/^(?:series\s+)?(directed by|direction|writing credits|writers?|written by|produced by|producers?|music by|music|cinematography by|cinematography|film editing by|editing|casting by|casting|production design|art direction|set decoration|costume design|makeup department|production management|second unit|art department|sound department|special effects|visual effects|stunts|camera and electrical|crew|series crew|other crew|thanks|company credits)\b/i;
+const IL_HEAD=/^(cast|series cast|full cast|full cast & crew|cast \(in credits order\)|rest of cast listed alphabetically:?|cast \(.*\)|credited cast|uncredited|see full cast.*|edit)$/i;
+const IL_EPS=/^\d+\s+episodes?\b|^episode\b|^\d+\s+episodes?\s*[•·]/i;
+function ilParse(text){
+  let lines=text.replace(/\r/g,'').split('\n').map(l=>l.replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/<[^>]+>/g,'').trim()).filter(Boolean);
+  const stop=lines.findIndex((l,k)=>k>0&&IL_STOP.test(l.replace(/^[*\-•]\s*/,'')));if(stop>0)lines=lines.slice(0,stop);
+  const isBul=l=>/^[*\-•]\s+/.test(l);
+  const roles=[];let mode;
+  if(lines.some(isBul)){mode='bullet';let inEntry=false;
+    for(const l of lines){if(isBul(l)){inEntry=true;continue;}if(!inEntry||IL_EPS.test(l)||IL_HEAD.test(l))continue;roles.push(l);}}
+  else if(lines.some(l=>IL_EPS.test(l))){mode='episodes';let blk=[];
+    for(const l of lines){if(IL_EPS.test(l)){const b=blk.filter(x=>!IL_HEAD.test(x));roles.push(...b.slice(1));blk=[];}else blk.push(l);}}
+  else{mode='plain';roles.push(...lines.filter(l=>!IL_HEAD.test(l)));}
+  const out=[],seen=new Map();
+  for(let role of roles){
+    role=role.replace(/^\/\s*/,'').replace(/\((?:uncredited|voice|as [^)]*|credit only|archive footage|[^)]*episodes?[^)]*)\)/gi,' ');
+    for(const part of role.split(/\s*[\/&,;]\s*|\s+(?:and)\s+/i)){
+      const words=part.replace(/['’]s\b/g,'').split(/[\s"“”()]+/).filter(Boolean);
+      for(let w of words){w=w.replace(/^[^\p{L}]+|[^\p{L}]+$/gu,'');if(w.length<2)continue;
+        if(!/^\p{Lu}/u.test(w))continue;const l=w.toLowerCase();
+        if(IL_TITLES.has(l)||IL_GENERIC.has(l)||/^#?\d/.test(w))continue;
+        if(seen.has(l))continue;seen.set(l,1);out.push({en:w,src:part.trim()});}}
+  }
+  return {mode,names:out,roles:roles.length};
+}
+function ilOpen(){
+  if(!G.on){toast('先在设置里启用专有词汇库');return;}
+  const w=document.createElement('div');w.className='cfm';
+  w.innerHTML=`<div class="card wide"><h2 style="margin:0 0 6px;font-size:17px">导入英文名单</h2>
+    <p class="stat" style="line-height:1.6">把 IMDb 的演员表（Full Cast &amp; Crew 页面里 Cast 那一段，直接在网页上复制，或复制成 Markdown 都行）粘贴到下面。会自动提取<b>角色名</b>（跳过演员名、集数，去掉 DS / DI / Dr 等头衔和 Police Officer 之类的泛称），拆成单个的名和姓，放进词汇库的“待配对”列表。<br><b>不会改动现有词条</b>：已在词库里的英文会自动跳过。</p>
+    <textarea id="ilText" rows="7" placeholder="在这里粘贴…" spellcheck="false"></textarea>
+    <div id="ilBar"></div><div id="ilList"></div>
+    <p style="text-align:right;margin:12px 0 0"><button class="c0">取消</button> <button class="c1 primary" disabled>加入待配对</button></p></div>`;
+  document.body.appendChild(w);
+  const ta=w.querySelector('#ilText'),ok=w.querySelector('.c1');let cur=[];
+  const kd=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}};
+  const close=()=>{w.remove();document.removeEventListener('keydown',kd,true);};
+  document.addEventListener('keydown',kd,true);
+  const refreshOk=()=>{const n=cur.filter(x=>x.on&&!x.dis).length;ok.disabled=!n;ok.textContent=n?`加入待配对（${n} 个）`:'加入待配对';};
+  const draw=()=>{
+    const r=ilParse(ta.value);const old=new Map(cur.map(x=>[x.en.toLowerCase(),x.on]));
+    cur=r.names.map(x=>{const l=x.en.toLowerCase(),n=gCountEn(x.en),inG=gHasEn(x.en),inC=G.cands.some(c=>c.en.toLowerCase()===l);
+      return {...x,n,dis:inG?'已在词库':inC?'已在待配对':'',on:old.has(l)?old.get(l):!(inG||inC)&&(r.mode!=='plain'||n>0)};});
+    const nn=cur.filter(x=>!x.dis).length,nh=cur.filter(x=>!x.dis&&x.n>0).length;
+    w.querySelector('#ilBar').innerHTML=ta.value.trim()?`<span class="stat">识别到 ${r.roles} 个角色 → ${cur.length} 个名字（新的 ${nn} 个，本集英文里出现的 ${nh} 个）${r.mode==='plain'?'；没认出 IMDb 格式，按每行处理，默认只勾选本集出现的':''}</span><span style="flex:1"></span><button data-b="all">全选</button><button data-b="here">只选本集出现的</button><button data-b="none">全不选</button>`:'';
+    w.querySelector('#ilList').innerHTML=cur.map((x,k)=>`<label class="r${x.dis?' dis':''}"><input type="checkbox" data-k="${k}"${x.on&&!x.dis?' checked':''}${x.dis?' disabled':''}><b>${esc(x.en)}</b><span class="c">${x.dis||('本集 '+x.n+' 处')}</span><span class="src" title="${esc(x.src)}">${esc(x.src)}</span></label>`).join('');
+    w.querySelector('#ilList').style.display=cur.length?'':'none';refreshOk();};
+  let t=null;ta.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(draw,200);});
+  w.querySelector('#ilList').addEventListener('change',e=>{const k=e.target.dataset.k;if(k!=null){cur[+k].on=e.target.checked;refreshOk();}});
+  w.querySelector('#ilBar').addEventListener('click',e=>{const b=e.target.dataset.b;if(!b)return;cur.forEach(x=>{if(!x.dis)x.on=b==='all'||(b==='here'&&x.n>0);});
+    w.querySelectorAll('#ilList input').forEach(i=>{const x=cur[+i.dataset.k];i.checked=x.on&&!x.dis;});refreshOk();});
+  w.querySelector('.c0').onclick=close;
+  ok.onclick=()=>{const n=gCandAdd(cur.filter(x=>x.on&&!x.dis));close();setSideTab('gloss');gCandRender();hlAll();
+    toast(`已加入待配对 ${n} 个名字；点名字跳到英文出现处，再在中文框选中译名按 Alt+G`,5000);};
+  ta.focus();
+}
+$('#gImportList').addEventListener('click',ilOpen);
+$('#gImport').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';
+  try{const d=JSON.parse(await f.text());const items=Array.isArray(d)?d:(d.items||d.gloss);if(!Array.isArray(items))throw 0;
+    const st=gMerge(items);const pc=Array.isArray(d.pending)?gCandAdd(d.pending):0;gRender();hlAll();
+    toast(`已导入“${f.name}”：新增 ${st.add} 条`+(pc?`，待配对英文 ${pc} 个`:'')+(st.fill?`，补全 ${st.fill} 条`:'')+(st.diff?`；${st.diff} 条与现有词条的译名不同，保留了现有的`:'')+`（词库共 ${G.items.length} 条）`,5000);}
+  catch(err){toast('不是有效的词库文件');}});
+
+/* ================= 提示 ================= */
+let toastT=null;function toast(m,ms){const el=$('#toast');el.textContent=m;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),ms||2600);}
+
+writeSettings();updateButtons();gApplyUI();atUI();
+</script>
+</body>
+</html>
