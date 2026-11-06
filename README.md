@@ -1,5 +1,7 @@
 # 双语字幕合并编辑器
 
+A browser-based tool to merge English and Chinese SRT subtitles into bilingual ASS/SRT.
+
 把**英文 SRT** 和**中文 SRT** 合并成双语字幕的网页小工具：自动检测时间偏移、按时间重叠把中文分配到英文时间轴上，可视化逐条检查修改，最后导出 **ASS**（推荐，适合 Aegisub）或 **SRT**。
 
 👉 **在线使用：** https://aud-sin.github.io/srt-bilingual-merge/
