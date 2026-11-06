@@ -1063,10 +1063,32 @@ function toggleNL(i,jx){const r=S.rows[i];if(!r||!hasNl(r))return;const j=r.nlj[
 function nextDlg(){const n=S.rows.length;if(!n)return;for(let d=1;d<=n;d++){const k=(S.cur+d+n)%n;if(S.rows[k].dlg||S.rows[k].pq){focusRow(k,'cn','end',true);return;}}toast('没有对白 / 标点待审的条目');}
 function confirmPq(i){if(i<0||!S.rows[i]||!S.rows[i].pq)return;beginOp();const r=S.rows[i];r.pq='';delete r.pqN;r.pqOk=true;updateRowEl(i);endOp();toast('已确认标点');}
 function confirmDlg(i){if(i<0||!S.rows[i]||!S.rows[i].dlg)return;beginOp();const r=S.rows[i];r.dlg='';r.dlgOk=true;updateRowEl(i);endOp();toast('已确认对白');}
+// 去掉旧进度里拆分对白留下的孤立“-”
+function repairSplitDash(){
+  const rows=S.rows;if(!rows.length||!S.cn.length)return 0;
+  const starts=rows.map(r=>r.s);let maxDur=1000;for(const r of rows)maxDur=Math.max(maxDur,r.e-r.s);
+  const keys=[];
+  S.cn.forEach((c,ci)=>{const t=(c.text||'').replace(/\n/g,' '),b=dlgBounds(t);if(!b.length)return;
+    const os=c.os??c.s,oe=c.oe??c.e,ov=[];
+    for(let k=lb(starts,os-maxDur);k<rows.length&&rows[k].s<oe;k++){const o=Math.min(oe,rows[k].e)-Math.max(os,rows[k].s);if(o>0)ov.push(o);}
+    const tot=ov.reduce((a,x)=>a+x,0);if(ov.filter(o=>o/tot>=0.15).length<2)return;
+    b.forEach(p=>{const k=norm(t.slice(p+1)).slice(0,4);if(k)keys.push({s:os,e:oe,ci,k});});});
+  if(!keys.length)return 0;
+  let n=0;
+  rows.forEach(r=>{if(r.solo||!r.cn||parseEnDialogue(r.en))return;
+    const b=dlgBounds(r.cn);if(!b.length)return;
+    const near=keys.filter(x=>x.s<r.e+2000&&x.e>r.s-2000);if(!near.length)return;
+    const hit=b.map(p=>{const k=norm(r.cn.slice(p+1)).slice(0,4),m=k&&near.find(x=>x.k===k);return m?{p,ci:m.ci}:null;}).filter(Boolean);
+    const del=hit.filter(h=>hit.filter(x=>x.ci===h.ci).length===1).map(h=>h.p).sort((a,b)=>b-a);
+    if(!del.length)return;
+    let t=r.cn;del.forEach(p=>{t=t.slice(0,p)+t.slice(p+1).replace(/^\s+/,'');});
+    r.cn=t.trim();n+=del.length;});
+  return n;
+}
 function tidyAll(){
   readSettings();const set=S.settings;if(!S.rows.length)return;
   beginOp();const d0=S.rows.filter(r=>r.dlg).length;
-  const befores=S.rows.map(r=>r.cn||'');const nl=set.cnNL==='smart'?repairNL():0;
+  const befores=S.rows.map(r=>r.cn||'');const nl=set.cnNL==='smart'?repairNL():0;const nd=repairSplitDash();
   let nc=0;S.rows.forEach((r,i)=>{const before=befores[i];
     if(set.dlgFix)checkDialogue(r,null);
     if(set.cnPunct)r.cn=normPunct(r.cn||'',r.en,set.ellMode);
@@ -1074,7 +1096,7 @@ function tidyAll(){
     if(r.cn!==before)nc++;});
   const c=S.cur;S.cur=-1;renderAll();if(c>=0&&rowEl(c)){S.cur=c;rowEl(c).classList.add('cur');}
   endOp();const d1=S.rows.filter(r=>r.dlg).length,p1=S.rows.filter(r=>r.pq).length;
-  toast(`已整理：改动 ${nc} 条中文`+(nl?`（其中按新规则调整中文换行处 ${nl} 处）`:'')+(S.rows.filter(hasNl).length?`；换行处待查 ${S.rows.filter(hasNl).length} 条`:'')+(set.dlgFix?`；对白待审 ${d1} 条`+(d1>d0?`（新增 ${d1-d0}）`:''):'')+(set.pqFix?`；标点待审 ${p1} 条`:'')+'（可撤销）',4500);
+  toast(`已整理：改动 ${nc} 条中文`+(nl?`（其中按新规则调整中文换行处 ${nl} 处）`:'')+(nd?`；去掉拆分对白留下的“-” ${nd} 处`:'')+(S.rows.filter(hasNl).length?`；换行处待查 ${S.rows.filter(hasNl).length} 条`:'')+(set.dlgFix?`；对白待审 ${d1} 条`+(d1>d0?`（新增 ${d1-d0}）`:''):'')+(set.pqFix?`；标点待审 ${p1} 条`:'')+'（可撤销）',4500);
 }
 function toggleTr(i){if(i<0||!S.rows[i])return;beginOp();const r=S.rows[i];if(r.trM)delete r.trM;else r.trM=true;updateRowEl(i);endOp();toast(r.trM?'已标记为待翻译（翻好后再按 Alt+R 或点标签取消）':'已取消待翻译标记');}
 function nextTr(){const n=S.rows.length;if(!n)return;for(let d=1;d<=n;d++){const k=(S.cur+d+n)%n;if(needTr(S.rows[k])){focusRow(k,'cn','end',true);return;}}toast('没有待翻译的条目');}
